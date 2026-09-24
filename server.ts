@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import {
   connectMongo,
@@ -24,6 +25,8 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const SESSION_SECRET = process.env.SESSION_SECRET || process.env.JWT_SECRET || 'engiquiz_session_secret_change_in_prod_xyz';
+
 async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -34,22 +37,87 @@ async function startServer() {
   // Connect to MongoDB Atlas (or initialize local sandbox fallback) asynchronously
   connectMongo().catch(() => {});
 
-  // Simple token generator / decoder using base64 + timestamp
-  function createToken(userId: string): string {
-    const payload = JSON.stringify({ userId, ts: Date.now() });
-    return Buffer.from(payload).toString('base64');
+  // Cookie parser helper
+  function parseCookies(req: Request): Record<string, string> {
+    const list: Record<string, string> = {};
+    const cookieHeader = req.headers.cookie;
+    if (!cookieHeader) return list;
+
+    cookieHeader.split(';').forEach(cookie => {
+      let [name, ...rest] = cookie.split('=');
+      name = name?.trim();
+      if (!name) return;
+      const value = rest.join('=').trim();
+      try {
+        list[name] = decodeURIComponent(value);
+      } catch {
+        list[name] = value;
+      }
+    });
+
+    return list;
   }
 
-  function getUserIdFromReq(req: Request): string | null {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  // Cryptographically signed session token generator (HMAC SHA-256)
+  function createToken(userId: string): string {
+    const payload = {
+      userId,
+      exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+    };
+    const payloadStr = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const signature = crypto
+      .createHmac('sha256', SESSION_SECRET)
+      .update(payloadStr)
+      .digest('base64url');
+    return `${payloadStr}.${signature}`;
+  }
+
+  // Token signature and expiration verification
+  function verifyToken(token: string): { userId: string } | null {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+
+    const [payloadStr, signature] = parts;
+    const expectedSig = crypto
+      .createHmac('sha256', SESSION_SECRET)
+      .update(payloadStr)
+      .digest('base64url');
+
     try {
-      const token = authHeader.substring(7);
-      const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
-      return decoded.userId || null;
+      const sigBuffer = Buffer.from(signature);
+      const expectedBuffer = Buffer.from(expectedSig);
+      if (sigBuffer.length !== expectedBuffer.length) return null;
+      if (!crypto.timingSafeEqual(sigBuffer, expectedBuffer)) return null;
+
+      const payload = JSON.parse(Buffer.from(payloadStr, 'base64url').toString('utf8'));
+      if (!payload.userId || !payload.exp || Date.now() > payload.exp) {
+        return null;
+      }
+      return { userId: payload.userId };
     } catch {
       return null;
     }
+  }
+
+  // Stateless authentication validator: extracts user from Bearer header or HTTP-only cookie
+  function getUserIdFromReq(req: Request): string | null {
+    // 1. Check Authorization Bearer header
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7).trim();
+      const verified = verifyToken(token);
+      if (verified) return verified.userId;
+    }
+
+    // 2. Check HTTP-only session cookie
+    const cookies = parseCookies(req);
+    if (cookies['engiquiz_session']) {
+      const verified = verifyToken(cookies['engiquiz_session']);
+      if (verified) return verified.userId;
+    }
+
+    return null;
   }
 
   // ==========================================
@@ -110,6 +178,14 @@ async function startServer() {
       });
 
       const token = createToken(newUser.id);
+      const isProduction = process.env.NODE_ENV === 'production';
+      res.cookie('engiquiz_session', token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/'
+      });
 
       return res.status(201).json({
         success: true,
@@ -150,6 +226,14 @@ async function startServer() {
       }
 
       const token = createToken(user.id);
+      const isProduction = process.env.NODE_ENV === 'production';
+      res.cookie('engiquiz_session', token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/'
+      });
 
       return res.json({
         success: true,
@@ -209,7 +293,7 @@ async function startServer() {
 
       const user = await findUserById(userId);
       if (!user) {
-        return res.status(404).json({ success: false, error: 'User not found' });
+        return res.status(401).json({ success: false, error: 'User not found' });
       }
 
       return res.json({
@@ -261,6 +345,13 @@ async function startServer() {
   });
 
   app.post('/api/auth/logout', (req: Request, res: Response) => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.clearCookie('engiquiz_session', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      path: '/'
+    });
     return res.json({ success: true, message: 'Logged out successfully' });
   });
 
@@ -278,12 +369,14 @@ async function startServer() {
 
       const user = await findUserById(userId);
       if (!user) {
-        return res.status(404).json({ success: false, error: 'User not found.' });
+        return res.status(401).json({ success: false, error: 'User not found.' });
       }
 
       if (attempt) {
+        // Enforce user isolation: strictly associate attempt with authenticated user
         await saveAttempt({
           ...attempt,
+          id: attempt.id || `quiz_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
           userId: user.id,
           userEmail: user.email
         });
@@ -317,8 +410,8 @@ async function startServer() {
 
       return res.json({
         success: true,
-        attempts,
-        bookmarks
+        attempts: attempts || [],
+        bookmarks: bookmarks || []
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message });
@@ -367,6 +460,16 @@ async function startServer() {
       }
 
       const rawPath = req.path.replace(/^\/+/, '').split('?')[0];
+
+      // Handle dashboard route
+      if (rawPath === 'dashboard' || rawPath === 'dashboard.html') {
+        const userId = getUserIdFromReq(req);
+        if (!userId) {
+          return res.redirect('/login.html?redirect=index.html');
+        }
+        return res.redirect('/index.html');
+      }
+
       const targetPage = rawPath.endsWith('.html') ? rawPath : (rawPath ? `${rawPath}.html` : 'index.html');
 
       // 1. Try file in dist

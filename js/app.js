@@ -22,6 +22,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Highlight active navbar link based on current path
   highlightActiveNavLink();
+
+  window.addEventListener("auth:ready", () => {
+    updateNavbarStreak();
+  });
+
+  window.addEventListener("data:synced", () => {
+    updateNavbarStreak();
+  });
+
+  window.addEventListener("auth:logout", () => {
+    updateNavbarStreak();
+  });
 });
 
 function updateNavbarStreak() {

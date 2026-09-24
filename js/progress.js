@@ -7,35 +7,15 @@ let subjectChartInstance = null;
 let trendChartInstance = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const user = await Auth.requireAuth();
+  if (!user) return;
+
+  const main = document.getElementById("progressMain");
+  if (main) main.style.display = "";
+
+  await Auth.fetchUserCloudData();
   renderProgressPage();
-  setupCloudSync();
 });
-
-async function setupCloudSync() {
-  const cloudBadge = document.getElementById("progressCloudBadge");
-  const syncBtn = document.getElementById("btnSyncCloudProgress");
-
-  if (typeof Auth !== "undefined" && Auth.isLoggedIn()) {
-    cloudBadge?.classList.remove("d-none");
-    syncBtn?.classList.remove("d-none");
-
-    syncBtn?.addEventListener("click", async () => {
-      syncBtn.disabled = true;
-      syncBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Pulling...`;
-      await Auth.pullFromMongo();
-      renderProgressPage();
-      syncBtn.disabled = false;
-      syncBtn.innerHTML = `<i class="bi bi-arrow-repeat me-1"></i> Refresh Cloud Data`;
-    });
-
-    try {
-      await Auth.pullFromMongo();
-      renderProgressPage();
-    } catch (e) {
-      console.warn("Initial progress cloud sync deferred:", e);
-    }
-  }
-}
 
 function renderProgressPage() {
   if (typeof Storage === "undefined") return;

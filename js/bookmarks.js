@@ -4,23 +4,16 @@
  */
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const user = await Auth.requireAuth();
+  if (!user) return;
+
+  const main = document.getElementById("bookmarksMain");
+  if (main) main.style.display = "";
+
+  await Auth.fetchUserCloudData();
   renderBookmarksList();
   setupBookmarkFilters();
-  setupCloudBookmarks();
 });
-
-async function setupCloudBookmarks() {
-  const badge = document.getElementById("bookmarksCloudBadge");
-  if (typeof Auth !== "undefined" && Auth.isLoggedIn()) {
-    badge?.classList.remove("d-none");
-    try {
-      await Auth.pullFromMongo();
-      renderBookmarksList();
-    } catch (e) {
-      console.warn("Initial bookmarks pull deferred:", e);
-    }
-  }
-}
 
 function renderBookmarksList(filterSubject = "All") {
   const container = document.getElementById("bookmarksContainer");

@@ -69,7 +69,7 @@
             <li class="nav-item"><a class="nav-link" href="history.html"><i class="bi bi-clock-history me-1"></i> History</a></li>
           </ul>
 
-          <div class="d-flex align-items-center gap-3">
+          <div class="engi-nav-actions d-flex align-items-center gap-2 gap-sm-3">
             <div id="navStreakBadge" class="streak-pill" title="Daily Practice Streak">
               <i class="bi bi-fire text-warning"></i> 0 Days
             </div>
@@ -521,10 +521,15 @@
     <script>
       let chosenAvatar = "🎓";
 
-      document.addEventListener("DOMContentLoaded", () => {
+      document.addEventListener("DOMContentLoaded", async () => {
         checkMongoConnection();
+        await Auth.checkSession();
         renderView();
         setupEventListeners();
+      });
+
+      window.addEventListener("auth:ready", () => {
+        renderView();
       });
 
       async function checkMongoConnection(isRetry = false) {
@@ -766,6 +771,12 @@
 
           try {
             await Auth.login(email, password);
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get("redirect");
+            if (redirect && !redirect.includes("login.html")) {
+              window.location.href = redirect;
+              return;
+            }
             renderView();
             Auth.renderNavUser();
             Auth.applyPersonalization();
@@ -785,6 +796,12 @@
           btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Loading demo account...`;
           try {
             await Auth.login("student@engiquiz.edu", "demo123");
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get("redirect");
+            if (redirect && !redirect.includes("login.html")) {
+              window.location.href = redirect;
+              return;
+            }
             renderView();
             Auth.renderNavUser();
             Auth.applyPersonalization();
@@ -821,6 +838,12 @@
 
           try {
             await Auth.register({ name, email, password, branch, targetExam, avatar });
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get("redirect");
+            if (redirect && !redirect.includes("login.html")) {
+              window.location.href = redirect;
+              return;
+            }
             renderView();
             Auth.renderNavUser();
             Auth.applyPersonalization();

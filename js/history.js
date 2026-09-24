@@ -4,37 +4,16 @@
  */
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const user = await Auth.requireAuth();
+  if (!user) return;
+
+  const main = document.getElementById("historyMain");
+  if (main) main.style.display = "";
+
+  await Auth.fetchUserCloudData();
   renderHistoryTable();
   setupHistoryFilters();
-  setupCloudSync();
 });
-
-async function setupCloudSync() {
-  const cloudBadge = document.getElementById("historyCloudBadge");
-  const syncBtn = document.getElementById("btnSyncCloudHistory");
-
-  if (typeof Auth !== "undefined" && Auth.isLoggedIn()) {
-    cloudBadge?.classList.remove("d-none");
-    syncBtn?.classList.remove("d-none");
-
-    syncBtn?.addEventListener("click", async () => {
-      syncBtn.disabled = true;
-      syncBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Pulling...`;
-      await Auth.pullFromMongo();
-      renderHistoryTable();
-      syncBtn.disabled = false;
-      syncBtn.innerHTML = `<i class="bi bi-arrow-repeat me-1"></i> Refresh Cloud Tests`;
-    });
-
-    // Auto pull on page load
-    try {
-      await Auth.pullFromMongo();
-      renderHistoryTable();
-    } catch (e) {
-      console.warn("Initial history pull deferred:", e);
-    }
-  }
-}
 
 function renderHistoryTable(filterSubject = "All") {
   const container = document.getElementById("historyTableBody");

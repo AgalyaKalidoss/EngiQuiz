@@ -1,5 +1,6 @@
 /**
  * EngiQuiz - Comprehensive Authentication & MongoDB Atlas Synchronization Client
+ * Implements server-authoritative sessions, user isolation, and automatic session restoration.
  */
 
 const AuthKeys = {
@@ -9,7 +10,14 @@ const AuthKeys = {
 };
 
 const Auth = {
+  _currentUser: null,
+  _sessionCheckPromise: null,
+
+  /**
+   * Retrieves the current user profile. Returns verified in-memory user if authenticated.
+   */
   getUser() {
+    if (this._currentUser) return this._currentUser;
     try {
       const data = localStorage.getItem(AuthKeys.USER);
       return data ? JSON.parse(data) : null;
@@ -18,32 +26,121 @@ const Auth = {
     }
   },
 
+  getCurrentUserId() {
+    const user = this.getUser();
+    return user ? user.id : null;
+  },
+
   getToken() {
     return localStorage.getItem(AuthKeys.TOKEN) || null;
   },
 
   isLoggedIn() {
-    return !!this.getToken() && !!this.getUser();
+    return !!this.getUser();
   },
 
   setUserSession(token, user) {
-    localStorage.setItem(AuthKeys.TOKEN, token);
-    localStorage.setItem(AuthKeys.USER, JSON.stringify(user));
+    this._currentUser = user;
+    if (token) {
+      localStorage.setItem(AuthKeys.TOKEN, token);
+    }
+    if (user) {
+      localStorage.setItem(AuthKeys.USER, JSON.stringify(user));
+    }
     this.renderNavUser();
     this.applyPersonalization();
+    window.dispatchEvent(new CustomEvent("auth:ready", { detail: { user } }));
   },
 
   clearSession() {
-    localStorage.removeItem(AuthKeys.TOKEN);
-    localStorage.removeItem(AuthKeys.USER);
+    this._currentUser = null;
+    try {
+      localStorage.removeItem(AuthKeys.TOKEN);
+      localStorage.removeItem(AuthKeys.USER);
+    } catch {}
     this.renderNavUser();
     this.applyPersonalization();
+    window.dispatchEvent(new CustomEvent("auth:ready", { detail: { user: null } }));
+  },
+
+  /**
+   * Authoritative server session verification.
+   * Calls GET /api/auth/me with credentials: 'include'.
+   * Restores session on refresh or clears stale data if invalid/logged out.
+   */
+  async checkSession() {
+    if (this._sessionCheckPromise) {
+      return this._sessionCheckPromise;
+    }
+
+    this._sessionCheckPromise = (async () => {
+      try {
+        const token = this.getToken();
+        const headers = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const res = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+          headers
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.user) {
+            this._currentUser = data.user;
+            localStorage.setItem(AuthKeys.USER, JSON.stringify(data.user));
+            this.renderNavUser();
+            this.applyPersonalization();
+            window.dispatchEvent(new CustomEvent("auth:ready", { detail: { user: data.user } }));
+
+            // Background fetch user's cloud quiz history & bookmarks
+            this.fetchUserCloudData().catch(() => {});
+            return data.user;
+          }
+        }
+      } catch (err) {
+        console.warn("[EngiQuiz Auth] Session validation encountered network error:", err);
+      }
+
+      // If unauthorized (401) or no valid session, clear client authentication state
+      this._currentUser = null;
+      try {
+        localStorage.removeItem(AuthKeys.TOKEN);
+        localStorage.removeItem(AuthKeys.USER);
+      } catch {}
+      this.renderNavUser();
+      this.applyPersonalization();
+      window.dispatchEvent(new CustomEvent("auth:ready", { detail: { user: null } }));
+      return null;
+    })().finally(() => {
+      this._sessionCheckPromise = null;
+    });
+
+    return this._sessionCheckPromise;
+  },
+
+  /**
+   * Guard for protected pages (history.html, bookmarks.html, progress.html).
+   * Validates server session; redirects to login if unauthenticated.
+   */
+  async requireAuth(redirectTo = "login.html") {
+    const user = await this.checkSession();
+    if (!user) {
+      const currentPath = window.location.pathname + window.location.search;
+      window.location.replace(`${redirectTo}?redirect=${encodeURIComponent(currentPath)}`);
+      return null;
+    }
+    return user;
   },
 
   async login(email, password) {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password })
       });
@@ -51,10 +148,16 @@ const Auth = {
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Invalid email or password.");
       }
+
+      // Clear any guest storage state before establishing authenticated state
+      if (typeof Storage !== "undefined") {
+        Storage.clearGuestData();
+      }
+
       this.setUserSession(data.token, data.user);
       
       // Auto-fetch synced cloud attempts from MongoDB Atlas
-      this.fetchUserCloudData().catch(() => {});
+      await this.fetchUserCloudData();
       
       return data;
     } catch (err) {
@@ -66,6 +169,7 @@ const Auth = {
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
@@ -80,6 +184,11 @@ const Auth = {
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Registration failed.");
       }
+
+      if (typeof Storage !== "undefined") {
+        Storage.clearGuestData();
+      }
+
       this.setUserSession(data.token, data.user);
       return data;
     } catch (err) {
@@ -91,6 +200,7 @@ const Auth = {
     try {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), newPassword })
       });
@@ -106,15 +216,14 @@ const Auth = {
 
   async updateProfile(updates) {
     const token = this.getToken();
-    if (!token) throw new Error("Not authenticated");
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     try {
       const res = await fetch("/api/auth/profile", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        credentials: "include",
+        headers,
         body: JSON.stringify(updates)
       });
       const data = await res.json();
@@ -123,6 +232,7 @@ const Auth = {
       }
       const current = this.getUser() || {};
       const updated = { ...current, ...data.user };
+      this._currentUser = updated;
       localStorage.setItem(AuthKeys.USER, JSON.stringify(updated));
       this.renderNavUser();
       this.applyPersonalization();
@@ -134,23 +244,42 @@ const Auth = {
 
   async logout() {
     const token = this.getToken();
-    if (token) {
-      fetch("/api/auth/logout", {
+    const headers = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    try {
+      await fetch("/api/auth/logout", {
         method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      }).catch(() => {});
+        credentials: "include",
+        headers
+      });
+    } catch (e) {
+      // Proceed with local logout regardless of network status
     }
+
+    // Clear active in-progress quiz
+    if (typeof Storage !== "undefined") {
+      Storage.clearCurrentQuiz();
+      Storage.clearGuestData();
+    }
+
     this.clearSession();
     
     // Redirect if on login or protected page
-    if (window.location.pathname.includes("login.html")) {
+    const pathname = window.location.pathname;
+    const isProtected = pathname.includes("history.html") || pathname.includes("bookmarks.html") || pathname.includes("progress.html");
+
+    if (isProtected) {
+      window.location.replace("index.html");
+    } else if (pathname.includes("login.html")) {
       window.location.reload();
     } else {
       if (typeof showNotification === "function") {
         showNotification("Signed out successfully.", "info");
-      } else {
-        window.location.reload();
       }
+      this.renderNavUser();
+      this.applyPersonalization();
+      window.dispatchEvent(new CustomEvent("auth:logout"));
     }
   },
 
@@ -177,16 +306,16 @@ const Auth = {
   },
 
   async syncToMongo(attempt = null, bookmarks = null) {
+    if (!this.isLoggedIn()) return;
     const token = this.getToken();
-    if (!token) return;
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     try {
       await fetch("/api/user/sync", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        credentials: "include",
+        headers,
         body: JSON.stringify({ attempt, bookmarks })
       });
     } catch (err) {
@@ -195,34 +324,27 @@ const Auth = {
   },
 
   async fetchUserCloudData() {
+    if (!this.isLoggedIn()) return null;
     const token = this.getToken();
-    if (!token) return null;
+    const headers = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     try {
       const res = await fetch("/api/user/sync", {
-        headers: { "Authorization": `Bearer ${token}` }
+        method: "GET",
+        credentials: "include",
+        headers
       });
       const data = await res.json();
-      if (data.success) {
-        // If user has attempts in Atlas, sync into local storage history
-        if (Array.isArray(data.attempts) && data.attempts.length > 0 && typeof Storage !== "undefined") {
-          const localHistory = Storage.getHistory();
-          const merged = [...data.attempts];
-          localHistory.forEach(lh => {
-            if (!merged.find(m => m.id === lh.id)) {
-              merged.push(lh);
-            }
-          });
-          merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          localStorage.setItem("engiquiz_history", JSON.stringify(merged));
+      if (data.success && typeof Storage !== "undefined") {
+        // Populate only the authenticated user's namespaced storage directly from server
+        if (Array.isArray(data.attempts)) {
+          Storage.setHistory(data.attempts);
         }
-
-        // Sync bookmarks
-        if (Array.isArray(data.bookmarks) && typeof Storage !== "undefined") {
-          const localBookmarks = Storage.getBookmarks();
-          const combined = Array.from(new Set([...localBookmarks, ...data.bookmarks]));
-          localStorage.setItem("engiquiz_bookmarks", JSON.stringify(combined));
+        if (Array.isArray(data.bookmarks)) {
+          Storage.setBookmarks(data.bookmarks);
         }
+        window.dispatchEvent(new CustomEvent("data:synced", { detail: data }));
         return data;
       }
     } catch {
@@ -260,12 +382,12 @@ const Auth = {
 
     if (!user) {
       container.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn btn-sm btn-outline-purple fw-bold d-flex align-items-center gap-1" id="btnNavSignIn">
+        <div class="nav-auth-buttons d-flex align-items-center gap-2 w-100">
+          <button type="button" class="btn btn-sm btn-outline-purple fw-bold d-flex align-items-center justify-content-center gap-1" id="btnNavSignIn">
             <i class="bi bi-box-arrow-in-right"></i>
             <span>Sign In</span>
           </button>
-          <button type="button" class="btn btn-sm btn-purple fw-bold d-none d-md-inline-flex align-items-center gap-1" id="btnNavSignUp">
+          <button type="button" class="btn btn-sm btn-purple fw-bold d-flex align-items-center justify-content-center gap-1" id="btnNavSignUp">
             <i class="bi bi-person-plus"></i>
             <span>Join Free</span>
           </button>
@@ -284,62 +406,175 @@ const Auth = {
     const shortName = user.name ? user.name.split(" ")[0] : "Student";
     const branchAbbr = user.branch ? (user.branch.match(/\(([^)]+)\)/)?.[1] || user.branch.substring(0, 4)) : "ENG";
 
+    // Clean up any existing modal instance from prior rendering
+    const existingModal = document.getElementById("userMobileModal");
+    if (existingModal) existingModal.remove();
+
     container.innerHTML = `
-      <div class="dropdown">
-        <button class="btn btn-sm btn-user-pill dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-          <span class="user-avatar-badge">${user.avatar || "🎓"}</span>
-          <span class="d-none d-sm-inline fw-bold text-truncate" style="max-width: 110px;">${shortName}</span>
-          <span class="badge bg-purple-subtle text-purple d-none d-md-inline" style="font-size: 0.72rem;">${branchAbbr}</span>
+      <div class="dropdown w-100">
+        <button class="btn btn-sm btn-user-pill dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="btnUserNavToggle">
+          <div class="d-flex align-items-center gap-2 text-truncate me-auto">
+            <span class="user-avatar-badge">${user.avatar || "🎓"}</span>
+            <span class="fw-bold text-truncate user-name-label">${user.name || "Student"}</span>
+          </div>
+          <span class="badge bg-purple-subtle text-purple user-branch-badge">${branchAbbr}</span>
         </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow-sm border p-2" style="min-width: 260px;">
-          <li class="px-3 py-2 border-bottom mb-2 bg-light rounded-top">
+        <ul class="dropdown-menu dropdown-menu-end user-nav-dropdown shadow-sm border p-2">
+          <li class="px-3 py-2 border-bottom mb-2 user-nav-header rounded">
             <div class="fw-bold text-truncate">${user.name}</div>
             <div class="small text-muted text-truncate">${user.email}</div>
-            <div class="small text-purple fw-semibold mt-1">
+            <div class="small text-purple fw-semibold mt-1 text-truncate">
               <i class="bi bi-mortarboard-fill me-1"></i> ${user.branch || "Engineering"}
             </div>
-            <div class="small text-muted">
+            <div class="small text-muted text-truncate">
               <i class="bi bi-bullseye me-1"></i> ${user.targetExam || "Target: Placements"}
             </div>
           </li>
           <li>
-            <div class="px-3 py-1 small d-flex align-items-center justify-content-between text-muted">
-              <span><i class="bi bi-database-check text-success me-1"></i> MongoDB Atlas:</span>
-              <span class="badge bg-success-subtle text-success">Active & Synced</span>
+            <div class="px-3 py-1 small d-flex align-items-center justify-content-between text-muted gap-2">
+              <span class="text-nowrap"><i class="bi bi-database-check text-success me-1"></i> MongoDB Atlas:</span>
+              <span class="badge bg-success-subtle text-success text-nowrap">Active & Synced</span>
             </div>
           </li>
           <li><hr class="dropdown-divider my-2"></li>
           <li>
             <a class="dropdown-item d-flex align-items-center gap-2" href="login.html">
-              <i class="bi bi-person-gear text-purple"></i> My Profile & Account
+              <i class="bi bi-person-gear text-purple"></i> <span>My Profile & Account</span>
             </a>
           </li>
           <li>
             <a class="dropdown-item d-flex align-items-center gap-2" href="progress.html">
-              <i class="bi bi-graph-up text-purple"></i> Performance Analytics
+              <i class="bi bi-graph-up text-purple"></i> <span>Performance Analytics</span>
             </a>
           </li>
           <li>
             <a class="dropdown-item d-flex align-items-center gap-2" href="bookmarks.html">
-              <i class="bi bi-bookmark-star text-warning"></i> Saved Questions
+              <i class="bi bi-bookmark-star text-warning"></i> <span>Saved Questions</span>
             </a>
           </li>
           <li>
             <a class="dropdown-item d-flex align-items-center gap-2" href="history.html">
-              <i class="bi bi-clock-history text-purple"></i> Quiz History
+              <i class="bi bi-clock-history text-purple"></i> <span>Quiz History</span>
             </a>
           </li>
           <li><hr class="dropdown-divider my-2"></li>
           <li>
-            <button type="button" id="btnLogoutNav" class="dropdown-item text-danger d-flex align-items-center gap-2">
-              <i class="bi bi-box-arrow-left"></i> Sign Out
+            <button type="button" id="btnLogoutNav" class="dropdown-item text-danger d-flex align-items-center gap-2 w-100">
+              <i class="bi bi-box-arrow-left"></i> <span>Sign Out</span>
             </button>
           </li>
         </ul>
       </div>
     `;
 
+    // Append Mobile Bottom Sheet Modal to body so it is completely immune to navbar overflow/clipping
+    const mobileModalHtml = `
+      <div class="modal fade user-mobile-modal" id="userMobileModal" tabindex="-1" aria-labelledby="userMobileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-bottom m-0">
+          <div class="modal-content border-0 shadow-lg">
+            <div class="mobile-sheet-handle mx-auto"></div>
+            
+            <div class="modal-header border-0 pb-2 pt-1 px-3 d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-2 text-truncate">
+                <span style="font-size: 1.6rem; line-height: 1;">${user.avatar || "🎓"}</span>
+                <div class="text-truncate">
+                  <h6 class="modal-title fw-bold mb-0 text-truncate" id="userMobileModalLabel">${user.name || "Student"}</h6>
+                  <div class="small text-muted text-truncate">${user.email || ""}</div>
+                </div>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body px-3 pt-1 pb-3">
+              <div class="p-2.5 mb-3 rounded-3 user-sheet-info-card d-flex align-items-center justify-content-between">
+                <div>
+                  <div class="small fw-semibold text-purple text-truncate">
+                    <i class="bi bi-mortarboard-fill me-1"></i> ${user.branch || "Engineering"}
+                  </div>
+                  <div class="small text-muted text-truncate">
+                    <i class="bi bi-bullseye me-1"></i> ${user.targetExam || "Target: Placements"}
+                  </div>
+                </div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle flex-shrink-0 ms-2">
+                  <i class="bi bi-database-check me-1"></i> Synced
+                </span>
+              </div>
+
+              <div class="list-group list-group-flush rounded-3 border mb-3 overflow-hidden">
+                <a href="login.html" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5">
+                  <div class="d-flex align-items-center gap-2.5">
+                    <span class="sheet-icon-pill"><i class="bi bi-person-gear text-purple"></i></span>
+                    <span class="fw-semibold">My Profile & Account</span>
+                  </div>
+                  <i class="bi bi-chevron-right text-muted small"></i>
+                </a>
+                <a href="progress.html" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5">
+                  <div class="d-flex align-items-center gap-2.5">
+                    <span class="sheet-icon-pill"><i class="bi bi-graph-up text-purple"></i></span>
+                    <span class="fw-semibold">Performance Analytics</span>
+                  </div>
+                  <i class="bi bi-chevron-right text-muted small"></i>
+                </a>
+                <a href="bookmarks.html" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5">
+                  <div class="d-flex align-items-center gap-2.5">
+                    <span class="sheet-icon-pill"><i class="bi bi-bookmark-star text-warning"></i></span>
+                    <span class="fw-semibold">Saved Questions</span>
+                  </div>
+                  <i class="bi bi-chevron-right text-muted small"></i>
+                </a>
+                <a href="history.html" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5">
+                  <div class="d-flex align-items-center gap-2.5">
+                    <span class="sheet-icon-pill"><i class="bi bi-clock-history text-purple"></i></span>
+                    <span class="fw-semibold">Quiz History</span>
+                  </div>
+                  <i class="bi bi-chevron-right text-muted small"></i>
+                </a>
+              </div>
+
+              <button type="button" id="btnSheetLogout" class="btn btn-outline-danger w-100 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2 rounded-3">
+                <i class="bi bi-box-arrow-left"></i> Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML("beforeend", mobileModalHtml);
+
+    // Responsive click interceptor: on mobile (< 992px), open bottom sheet modal instead of clipped dropdown
+    const toggleBtn = document.getElementById("btnUserNavToggle");
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", (e) => {
+        if (window.innerWidth < 992) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Close any open desktop dropdown instance
+          if (typeof bootstrap !== "undefined" && bootstrap.Dropdown) {
+            const bsDropdown = bootstrap.Dropdown.getInstance(toggleBtn);
+            if (bsDropdown) bsDropdown.hide();
+          }
+
+          // Open the mobile modal bottom sheet
+          const modalEl = document.getElementById("userMobileModal");
+          if (modalEl && typeof bootstrap !== "undefined" && bootstrap.Modal) {
+            const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            bsModal.show();
+          }
+        }
+      });
+    }
+
     document.getElementById("btnLogoutNav")?.addEventListener("click", () => {
+      this.logout();
+    });
+
+    document.getElementById("btnSheetLogout")?.addEventListener("click", () => {
+      const modalEl = document.getElementById("userMobileModal");
+      if (modalEl && typeof bootstrap !== "undefined" && bootstrap.Modal) {
+        const bsModal = bootstrap.Modal.getInstance(modalEl);
+        if (bsModal) bsModal.hide();
+      }
       this.logout();
     });
   },
@@ -424,14 +659,6 @@ const Auth = {
                       <i class="bi bi-box-arrow-in-right me-1"></i> Sign In to EngiQuiz
                     </button>
                   </form>
-
-                  <!-- Demo Login Quick Button -->
-                  <div class="p-3 border rounded bg-light text-center">
-                    <div class="small text-muted mb-2">Want to test instantly?</div>
-                    <button type="button" id="btnModalDemoLogin" class="btn btn-outline-purple btn-sm fw-bold w-100">
-                      <i class="bi bi-lightning-charge-fill me-1"></i> 1-Click Demo Login (Alex Chen · CSE)
-                    </button>
-                  </div>
                 </div>
 
                 <!-- MODAL SIGN UP -->
@@ -583,28 +810,6 @@ const Auth = {
         }
       });
 
-      // Modal Demo Login
-      document.getElementById("btnModalDemoLogin")?.addEventListener("click", async () => {
-        const btn = document.getElementById("btnModalDemoLogin");
-        btn.disabled = true;
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Loading demo account...`;
-        try {
-          await Auth.login("student@engiquiz.edu", "demo123");
-          const modalInstance = bootstrap.Modal.getInstance(modalEl);
-          modalInstance?.hide();
-          if (typeof showNotification === "function") {
-            showNotification("Signed in as Alex Chen (Demo CSE Student)!", "success");
-          }
-        } catch (err) {
-          const alertEl = document.getElementById("modalSignInAlert");
-          alertEl.textContent = err.message || "Demo login failed.";
-          alertEl.classList.remove("d-none");
-        } finally {
-          btn.disabled = false;
-          btn.innerHTML = `<i class="bi bi-lightning-charge-fill me-1"></i> 1-Click Demo Login (Alex Chen · CSE)`;
-        }
-      });
-
       // Modal Register Form submission
       document.getElementById("modalSignUpForm")?.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -663,7 +868,8 @@ const Auth = {
 
     if (heroTitle) {
       if (user) {
-        heroTitle.innerHTML = `Welcome back, <span class="text-purple">${user.name.split(" ")[0]}</span>! 🎯`;
+        const shortName = user.name ? user.name.split(" ")[0] : "Student";
+        heroTitle.innerHTML = `Welcome back, <span class="text-purple">${shortName}</span>! 🎯`;
       } else {
         heroTitle.innerHTML = `Master Engineering.<br /><span class="text-purple">One Quiz at a Time.</span>`;
       }
@@ -703,8 +909,8 @@ const Auth = {
             <button type="button" class="btn btn-sm btn-outline-purple fw-bold" onclick="Auth.openAuthModal('signin')">
               <i class="bi bi-box-arrow-in-right me-1"></i> Sign In to Save Progress
             </button>
-            <button type="button" class="btn btn-sm btn-light border fw-semibold text-muted" onclick="Auth.login('student@engiquiz.edu', 'demo123').then(() => showNotification('Demo account loaded!', 'success'))">
-              <i class="bi bi-lightning-charge-fill text-warning me-1"></i> 1-Click Demo
+            <button type="button" class="btn btn-sm btn-purple fw-bold" onclick="Auth.openAuthModal('signup')">
+              <i class="bi bi-person-plus me-1"></i> Create Free Account
             </button>
           </div>
         `;
@@ -725,9 +931,9 @@ const Auth = {
   }
 };
 
+// Initiate server-side session check on page load
 document.addEventListener("DOMContentLoaded", () => {
-  Auth.renderNavUser();
-  Auth.applyPersonalization();
+  Auth.checkSession();
 });
 
 if (typeof window !== "undefined") {

@@ -7,6 +7,18 @@ document.addEventListener("DOMContentLoaded", () => {
   renderDashboard();
 });
 
+window.addEventListener("auth:ready", () => {
+  renderDashboard();
+});
+
+window.addEventListener("data:synced", () => {
+  renderDashboard();
+});
+
+window.addEventListener("auth:logout", () => {
+  renderDashboard();
+});
+
 function renderDashboard() {
   if (typeof Storage === "undefined") return;
 

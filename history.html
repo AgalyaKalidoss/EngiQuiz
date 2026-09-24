@@ -40,7 +40,7 @@
             <li class="nav-item"><a class="nav-link active" href="history.html"><i class="bi bi-clock-history me-1"></i> History</a></li>
           </ul>
 
-          <div class="d-flex align-items-center gap-3">
+          <div class="engi-nav-actions d-flex align-items-center gap-2 gap-sm-3">
             <div id="navStreakBadge" class="streak-pill" title="Daily Practice Streak">
               <i class="bi bi-fire text-warning"></i> 0 Days
             </div>
@@ -55,23 +55,15 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="py-5">
+    <main class="py-5" id="historyMain" style="display: none;">
       <div class="container">
         <!-- Header -->
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
           <div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-              <h1 class="fw-bold mb-1">Quiz Attempt History</h1>
-              <span id="historyCloudBadge" class="badge bg-success-subtle text-success border border-success-subtle d-none">
-                <i class="bi bi-cloud-check-fill me-1"></i> MongoDB Atlas Synced
-              </span>
-            </div>
-            <p class="text-muted mb-0">Complete record of every quiz session saved across your devices and cloud store.</p>
+            <h1 class="fw-bold mb-1">Quiz Attempt History</h1>
+            <p class="text-muted mb-0">Complete record of every quiz session completed in this browser.</p>
           </div>
-          <div class="d-flex gap-2 mt-3 mt-md-0 align-items-center">
-            <button type="button" id="btnSyncCloudHistory" class="btn btn-sm btn-outline-purple d-none" title="Sync latest history from MongoDB Atlas">
-              <i class="bi bi-arrow-repeat me-1"></i> Refresh Cloud Tests
-            </button>
+          <div class="d-flex gap-2 mt-3 mt-md-0">
             <select id="historySubjectFilter" class="form-select form-select-sm" style="width: auto;">
               <option value="All">All Subjects</option>
             </select>

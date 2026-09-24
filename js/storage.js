@@ -1,20 +1,46 @@
 /**
  * EngiQuiz - LocalStorage Management Module
- * Safe, robust, error-tolerant persistence layer.
+ * Safe, robust, error-tolerant persistence layer with strict per-user isolation.
  */
 
 const StorageKeys = {
-  HISTORY: "engiquiz_history",
-  BOOKMARKS: "engiquiz_bookmarks",
-  MISTAKES: "engiquiz_mistakes",
   SETTINGS: "engiquiz_settings",
-  STREAK: "engiquiz_streak",
   CURRENT_QUIZ: "engiquiz_current_quiz",
-  LAST_RESULT: "engiquiz_last_result",
-  DAILY: "engiquiz_daily"
+  LAST_RESULT: "engiquiz_last_result"
 };
 
+// Purge legacy unisolated keys to eliminate cross-contamination from prior sessions
+(function purgeLegacyContaminatedKeys() {
+  try {
+    localStorage.removeItem("engiquiz_history");
+    localStorage.removeItem("engiquiz_bookmarks");
+    localStorage.removeItem("engiquiz_mistakes");
+    localStorage.removeItem("engiquiz_streak");
+    localStorage.removeItem("engiquiz_daily");
+  } catch (e) {
+    // Ignore storage errors in restricted contexts
+  }
+})();
+
 const Storage = {
+  /**
+   * Returns a namespace prefix based on the currently authenticated user.
+   * Isolates records between User A, User B, and guest visitors.
+   */
+  getActiveUserPrefix() {
+    try {
+      if (typeof Auth !== "undefined" && typeof Auth.getUser === "function") {
+        const user = Auth.getUser();
+        if (user && user.id) {
+          return `engiquiz_usr_${user.id}_`;
+        }
+      }
+    } catch {
+      // Fallback to guest if Auth is unavailable
+    }
+    return "engiquiz_guest_";
+  },
+
   /**
    * Helper to safely read from localStorage
    */
@@ -43,7 +69,7 @@ const Storage = {
   },
 
   /**
-   * Settings & Theme
+   * Settings & Theme (Device-level preference)
    */
   getSettings() {
     return this.get(StorageKeys.SETTINGS, { theme: "light" });
@@ -89,14 +115,21 @@ const Storage = {
   },
 
   /**
-   * History
+   * History (Isolated by authenticated user)
    */
   getHistory() {
-    const history = this.get(StorageKeys.HISTORY, []);
+    const key = `${this.getActiveUserPrefix()}history`;
+    const history = this.get(key, []);
     return Array.isArray(history) ? history : [];
   },
 
+  setHistory(historyList) {
+    const key = `${this.getActiveUserPrefix()}history`;
+    this.set(key, Array.isArray(historyList) ? historyList : []);
+  },
+
   saveQuizAttempt(attempt) {
+    const key = `${this.getActiveUserPrefix()}history`;
     const history = this.getHistory();
     // Add unique ID and timestamp if missing
     const record = {
@@ -126,20 +159,10 @@ const Storage = {
     history.unshift(record);
     // Keep up to 200 attempts
     if (history.length > 200) history.pop();
-    this.set(StorageKeys.HISTORY, history);
+    this.set(key, history);
 
-    // Also update streak
+    // Also update streak for this isolated user
     this.updateStreak();
-
-    // Trigger cloud synchronization if logged in
-    if (typeof Auth !== "undefined" && Auth.isLoggedIn()) {
-      Auth.syncToMongo({
-        attempt: record,
-        streak: this.getStreak(),
-        mistakes: this.getMistakes(),
-        bookmarks: this.getBookmarks()
-      });
-    }
 
     return record;
   },
@@ -150,60 +173,22 @@ const Storage = {
   },
 
   clearHistory() {
-    if (typeof Auth !== "undefined" && Auth.isLoggedIn()) {
-      Auth.deleteCloudHistory();
-    }
-    return this.set(StorageKeys.HISTORY, []);
+    const key = `${this.getActiveUserPrefix()}history`;
+    return this.set(key, []);
   },
 
   /**
-   * Merge cloud data downloaded from MongoDB Atlas
-   */
-  mergeCloudData(cloudData) {
-    if (!cloudData || typeof cloudData !== "object") return;
-    const { attempts, bookmarks, streak, mistakes } = cloudData;
-
-    // 1. Attempts: Merge without duplicating by ID
-    if (Array.isArray(attempts) && attempts.length > 0) {
-      const localHistory = this.getHistory();
-      const existingIds = new Set(localHistory.map(h => h.id));
-      const newFromCloud = attempts.filter(a => !existingIds.has(a.id));
-      const combined = [...localHistory, ...newFromCloud];
-      combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      if (combined.length > 200) combined.length = 200;
-      this.set(StorageKeys.HISTORY, combined);
-    }
-
-    // 2. Bookmarks: Union of cloud & local
-    if (Array.isArray(bookmarks) && bookmarks.length > 0) {
-      const localBookmarks = this.getBookmarks();
-      const combinedBookmarks = Array.from(new Set([...localBookmarks, ...bookmarks]));
-      this.set(StorageKeys.BOOKMARKS, combinedBookmarks);
-    }
-
-    // 3. Streak
-    if (streak && typeof streak === "object" && typeof streak.currentStreak === "number") {
-      const localStreak = this.getStreak();
-      const best = Math.max(localStreak.bestStreak || 0, streak.bestStreak || 0);
-      const current = Math.max(localStreak.currentStreak || 0, streak.currentStreak || 0);
-      const lastDate = streak.lastQuizDate || localStreak.lastQuizDate;
-      this.set(StorageKeys.STREAK, { currentStreak: current, bestStreak: best, lastQuizDate: lastDate });
-    }
-
-    // 4. Mistakes
-    if (mistakes && typeof mistakes === "object") {
-      const localMistakes = this.getMistakes();
-      const combinedMistakes = { ...localMistakes, ...mistakes };
-      this.set(StorageKeys.MISTAKES, combinedMistakes);
-    }
-  },
-
-  /**
-   * Bookmarks
+   * Bookmarks (Isolated by authenticated user)
    */
   getBookmarks() {
-    const bookmarks = this.get(StorageKeys.BOOKMARKS, []);
+    const key = `${this.getActiveUserPrefix()}bookmarks`;
+    const bookmarks = this.get(key, []);
     return Array.isArray(bookmarks) ? bookmarks : [];
+  },
+
+  setBookmarks(bookmarksList) {
+    const key = `${this.getActiveUserPrefix()}bookmarks`;
+    this.set(key, Array.isArray(bookmarksList) ? bookmarksList : []);
   },
 
   isBookmarked(questionId) {
@@ -212,6 +197,7 @@ const Storage = {
   },
 
   toggleBookmark(questionId) {
+    const key = `${this.getActiveUserPrefix()}bookmarks`;
     const bookmarks = this.getBookmarks();
     const index = bookmarks.indexOf(questionId);
     let bookmarked = false;
@@ -222,25 +208,27 @@ const Storage = {
       bookmarks.push(questionId);
       bookmarked = true;
     }
-    this.set(StorageKeys.BOOKMARKS, bookmarks);
+    this.set(key, bookmarks);
 
-    // Sync bookmarks with cloud
-    if (typeof Auth !== "undefined" && Auth.isLoggedIn()) {
-      Auth.syncToMongo({ bookmarks });
+    // If authenticated, sync with server
+    if (typeof Auth !== "undefined" && typeof Auth.isLoggedIn === "function" && Auth.isLoggedIn()) {
+      Auth.syncToMongo(null, bookmarks).catch(() => {});
     }
 
     return bookmarked;
   },
 
   /**
-   * Mistakes tracking
+   * Mistakes tracking (Isolated by authenticated user)
    */
   getMistakes() {
-    const mistakes = this.get(StorageKeys.MISTAKES, {});
+    const key = `${this.getActiveUserPrefix()}mistakes`;
+    const mistakes = this.get(key, {});
     return typeof mistakes === "object" && mistakes !== null ? mistakes : {};
   },
 
   recordMistake(questionId, subject, topic) {
+    const key = `${this.getActiveUserPrefix()}mistakes`;
     const mistakes = this.getMistakes();
     const existing = mistakes[questionId] || { count: 0, subject, topic };
     existing.count += 1;
@@ -248,30 +236,33 @@ const Storage = {
     existing.subject = subject || existing.subject;
     existing.topic = topic || existing.topic;
     mistakes[questionId] = existing;
-    this.set(StorageKeys.MISTAKES, mistakes);
+    this.set(key, mistakes);
   },
 
   clearMistake(questionId) {
+    const key = `${this.getActiveUserPrefix()}mistakes`;
     const mistakes = this.getMistakes();
     if (mistakes[questionId]) {
       delete mistakes[questionId];
-      this.set(StorageKeys.MISTAKES, mistakes);
+      this.set(key, mistakes);
     }
   },
 
   /**
-   * Streak management
+   * Streak management (Isolated by authenticated user)
    */
   getStreak() {
+    const key = `${this.getActiveUserPrefix()}streak`;
     const defaultStreak = {
       currentStreak: 0,
       bestStreak: 0,
       lastQuizDate: null
     };
-    return this.get(StorageKeys.STREAK, defaultStreak);
+    return this.get(key, defaultStreak);
   },
 
   updateStreak() {
+    const key = `${this.getActiveUserPrefix()}streak`;
     const streak = this.getStreak();
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
@@ -299,7 +290,7 @@ const Storage = {
       streak.lastQuizDate = today;
     }
 
-    this.set(StorageKeys.STREAK, streak);
+    this.set(key, streak);
     return streak;
   },
 
@@ -315,7 +306,9 @@ const Storage = {
   },
 
   clearCurrentQuiz() {
-    localStorage.removeItem(StorageKeys.CURRENT_QUIZ);
+    try {
+      localStorage.removeItem(StorageKeys.CURRENT_QUIZ);
+    } catch {}
   },
 
   /**
@@ -330,11 +323,12 @@ const Storage = {
   },
 
   /**
-   * Daily Challenge
+   * Daily Challenge (Isolated by authenticated user)
    */
   getDailyState() {
+    const key = `${this.getActiveUserPrefix()}daily`;
     const today = new Date().toISOString().split("T")[0];
-    const daily = this.get(StorageKeys.DAILY, { date: today, completed: false, score: 0, total: 10 });
+    const daily = this.get(key, { date: today, completed: false, score: 0, total: 10 });
     if (daily.date !== today) {
       return { date: today, completed: false, score: 0, total: 10 };
     }
@@ -342,14 +336,40 @@ const Storage = {
   },
 
   saveDailyState(score, total = 10) {
+    const key = `${this.getActiveUserPrefix()}daily`;
     const today = new Date().toISOString().split("T")[0];
     const data = { date: today, completed: true, score, total, completedAt: new Date().toISOString() };
-    this.set(StorageKeys.DAILY, data);
+    this.set(key, data);
     return data;
   },
 
   /**
-   * Global aggregated stats
+   * Clear user cached data
+   */
+  clearUserData(userId) {
+    if (!userId) return;
+    const prefix = `engiquiz_usr_${userId}_`;
+    try {
+      localStorage.removeItem(`${prefix}history`);
+      localStorage.removeItem(`${prefix}bookmarks`);
+      localStorage.removeItem(`${prefix}mistakes`);
+      localStorage.removeItem(`${prefix}streak`);
+      localStorage.removeItem(`${prefix}daily`);
+    } catch {}
+  },
+
+  clearGuestData() {
+    try {
+      localStorage.removeItem("engiquiz_guest_history");
+      localStorage.removeItem("engiquiz_guest_bookmarks");
+      localStorage.removeItem("engiquiz_guest_mistakes");
+      localStorage.removeItem("engiquiz_guest_streak");
+      localStorage.removeItem("engiquiz_guest_daily");
+    } catch {}
+  },
+
+  /**
+   * Global aggregated stats for the current isolated user
    */
   getOverallStats() {
     const history = this.getHistory();
