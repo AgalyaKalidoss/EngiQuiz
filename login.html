@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Login & Account — EngiQuiz</title>
+    <meta name="description" content="Sign in or register for EngiQuiz to personalize your engineering practice, track scores, and sync history with MongoDB Atlas." />
+    <meta property="og:title" content="Student Login & Account — EngiQuiz" />
+    <meta property="og:description" content="Personalized engineering quiz practice backed by MongoDB Atlas cloud persistence." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    
+    <!-- Custom Application CSS -->
+    <link rel="stylesheet" href="css/style.css" />
+
+    <style>
+      .avatar-select-grid {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .auth-card {
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .nav-tabs .nav-link {
+        font-weight: 600;
+        color: var(--text-muted);
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 0.75rem 1.25rem;
+      }
+      .nav-tabs .nav-link.active {
+        color: var(--primary);
+        border-bottom: 2px solid var(--primary);
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg engi-navbar">
+      <div class="container">
+        <a class="navbar-brand" href="index.html">
+          <span class="brand-logo-icon"><i class="bi bi-mortarboard-fill"></i></span>
+          <span>EngiQuiz</span>
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#engiNav" aria-controls="engiNav" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="engiNav">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+            <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-house-door me-1"></i> Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="subjects.html"><i class="bi bi-grid-fill me-1"></i> Subjects</a></li>
+            <li class="nav-item"><a class="nav-link" href="practice.html"><i class="bi bi-pencil-square me-1"></i> Practice</a></li>
+            <li class="nav-item"><a class="nav-link" href="progress.html"><i class="bi bi-graph-up me-1"></i> Progress</a></li>
+            <li class="nav-item"><a class="nav-link" href="bookmarks.html"><i class="bi bi-bookmark-star me-1"></i> Bookmarks</a></li>
+            <li class="nav-item"><a class="nav-link" href="history.html"><i class="bi bi-clock-history me-1"></i> History</a></li>
+          </ul>
+
+          <div class="d-flex align-items-center gap-3">
+            <div id="navStreakBadge" class="streak-pill" title="Daily Practice Streak">
+              <i class="bi bi-fire text-warning"></i> 0 Days
+            </div>
+            <div id="navUserContainer"></div>
+            <button id="themeToggleBtn" type="button" class="btn-theme-toggle" aria-label="Toggle theme">
+              <i class="bi bi-moon-stars-fill text-purple"></i>
+              <span class="theme-text d-none d-sm-inline">Dark Mode</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="py-5">
+      <div class="container" style="max-width: 820px;">
+        <!-- Mongo Atlas Status Card -->
+        <div class="card p-3 mb-3 shadow-sm border" id="mongoStatusCard" style="background-color: var(--primary-light);">
+          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+            <div class="d-flex align-items-center">
+              <span class="mongo-badge-pulse" id="mongoDot"></span>
+              <div>
+                <span class="fw-bold" id="mongoStatusText">MongoDB Atlas: Connecting...</span>
+                <span class="badge bg-purple ms-2" id="mongoClusterBadge">MongoDB Atlas</span>
+              </div>
+            </div>
+            <div class="small text-muted d-flex align-items-center gap-2" id="mongoDetailWrapper">
+              <span id="mongoDetailText">Syncing student profile & quiz history</span>
+              <button type="button" id="btnQuickRetry" class="btn btn-xs btn-outline-purple py-0 px-2 rounded small d-none" title="Refresh Atlas Connection">
+                <i class="bi bi-arrow-repeat"></i> Retry
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mongo Atlas Whitelist Helper Notice (Appears only if IP whitelist needed) -->
+        <div id="mongoWhitelistNotice" class="alert alert-info border-info-subtle shadow-sm mb-4 d-none">
+          <div class="d-flex align-items-start gap-2">
+            <i class="bi bi-info-circle-fill fs-5 text-info mt-1"></i>
+            <div class="flex-grow-1">
+              <div class="fw-bold mb-1">MongoDB Atlas: Network Access Whitelist Pending</div>
+              <div class="small text-body mb-2">
+                Your MongoDB Atlas cluster (<span id="mongoNoticeCluster" class="fw-semibold">cluster0.uby0zmj.mongodb.net</span>) is configured. In MongoDB Atlas, inbound connections from new environments require adding an IP whitelist entry:
+              </div>
+              <ol class="small text-muted mb-2 ps-3">
+                <li>Log in to <a href="https://cloud.mongodb.com" target="_blank" rel="noopener" class="text-decoration-underline fw-semibold text-purple">cloud.mongodb.com</a></li>
+                <li>Navigate to <strong>Security &rarr; Network Access</strong></li>
+                <li>Click <strong>+ Add IP Address</strong> &rarr; Select <strong>Allow Access from Anywhere</strong> (<code>0.0.0.0/0</code>) &rarr; Click <strong>Confirm</strong></li>
+              </ol>
+              <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
+                <button type="button" id="btnRetryMongo" class="btn btn-sm btn-purple px-3">
+                  <i class="bi bi-arrow-repeat me-1"></i> Test Connection
+                </button>
+                <span class="small text-muted">
+                  <i class="bi bi-check2-circle text-success me-1"></i> Local persistent fallback is active. All quiz, account, and study progress is saved.
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Auth Container Card -->
+        <div class="card auth-card shadow-sm border p-4 p-md-5">
+          <!-- ========================================== -->
+          <!-- State 1: User Logged In (Profile View) -->
+          <!-- ========================================== -->
+          <div id="loggedInProfileView" class="d-none">
+            <div class="text-center mb-4">
+              <div class="display-3 mb-2" id="profileViewAvatar">🎓</div>
+              <h2 class="fw-bold mb-1" id="profileViewName">Alex Chen</h2>
+              <p class="text-muted mb-2" id="profileViewEmail">student@engiquiz.edu</p>
+              <div class="d-flex justify-content-center gap-2 flex-wrap">
+                <span class="badge bg-purple px-3 py-1" id="profileViewBranch">CSE</span>
+                <span class="badge bg-secondary-subtle text-body px-3 py-1" id="profileViewGoal">Campus Placements</span>
+              </div>
+            </div>
+
+            <!-- Stats Overview Cards -->
+            <div class="row g-3 mb-4">
+              <div class="col-sm-4">
+                <div class="p-3 border rounded text-center bg-card">
+                  <div class="text-muted small fw-semibold">Target Discipline</div>
+                  <div class="fw-bold text-purple" id="profileBranchText">Computer Science</div>
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="p-3 border rounded text-center bg-card">
+                  <div class="text-muted small fw-semibold">Cloud Sync</div>
+                  <div class="fw-bold text-success"><i class="bi bi-cloud-check-fill me-1"></i> Atlas Synced</div>
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="p-3 border rounded text-center bg-card">
+                  <div class="text-muted small fw-semibold">Study Goal</div>
+                  <div class="fw-bold text-primary" id="profileGoalText">Placements</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Accordion: Edit Profile & Change Password -->
+            <div class="accordion mb-4" id="profileSettingsAccordion">
+              <!-- Item 1: Update Profile -->
+              <div class="accordion-item border rounded mb-2">
+                <h2 class="accordion-header" id="headingProfile">
+                  <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProfile" aria-expanded="false" aria-controls="collapseProfile">
+                    <i class="bi bi-person-gear text-purple me-2"></i> Update Your Profile Details
+                  </button>
+                </h2>
+                <div id="collapseProfile" class="accordion-collapse collapse" aria-labelledby="headingProfile" data-bs-parent="#profileSettingsAccordion">
+                  <div class="accordion-body bg-light">
+                    <form id="editProfileForm">
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label fw-semibold small">Full Name</label>
+                          <input type="text" id="editProfileName" class="form-control" required />
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label fw-semibold small">Engineering Branch</label>
+                          <select id="editProfileBranch" class="form-select">
+                            <option value="Computer Science & Engineering (CSE)">Computer Science & Engineering (CSE)</option>
+                            <option value="Information Technology (IT)">Information Technology (IT)</option>
+                            <option value="Artificial Intelligence & Data Science (AIDS)">Artificial Intelligence & Data Science (AIDS)</option>
+                            <option value="Electronics & Communication (ECE)">Electronics & Communication (ECE)</option>
+                            <option value="Electrical & Electronics (EEE)">Electrical & Electronics (EEE)</option>
+                            <option value="Mechanical Engineering (MECH)">Mechanical Engineering (MECH)</option>
+                            <option value="Civil Engineering (CIVIL)">Civil Engineering (CIVIL)</option>
+                          </select>
+                        </div>
+                        <div class="col-md-8">
+                          <label class="form-label fw-semibold small">Target Goal / Exam</label>
+                          <select id="editProfileGoal" class="form-select">
+                            <option value="Campus Placements & Coding Rounds">Campus Placements & Coding Rounds</option>
+                            <option value="GATE & PSU Examinations">GATE & PSU Examinations</option>
+                            <option value="Technical Interviews & FAANG">Technical Interviews & FAANG</option>
+                            <option value="Semester & University Exams">Semester & University Exams</option>
+                            <option value="Competitive Programming & Upskilling">Competitive Programming & Upskilling</option>
+                          </select>
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label fw-semibold small">Avatar</label>
+                          <div class="d-flex gap-1">
+                            <button type="button" class="btn btn-outline-secondary edit-avatar-opt px-2" data-av="🎓">🎓</button>
+                            <button type="button" class="btn btn-outline-secondary edit-avatar-opt px-2" data-av="💻">💻</button>
+                            <button type="button" class="btn btn-outline-secondary edit-avatar-opt px-2" data-av="⚡">⚡</button>
+                            <button type="button" class="btn btn-outline-secondary edit-avatar-opt px-2" data-av="🚀">🚀</button>
+                            <button type="button" class="btn btn-outline-secondary edit-avatar-opt px-2" data-av="🤖">🤖</button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="mt-3 d-flex justify-content-end">
+                        <button type="submit" class="btn btn-purple fw-bold px-4">
+                          <i class="bi bi-save me-1"></i> Save Changes to Atlas
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Item 2: Change Password -->
+              <div class="accordion-item border rounded">
+                <h2 class="accordion-header" id="headingSecurity">
+                  <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSecurity" aria-expanded="false" aria-controls="collapseSecurity">
+                    <i class="bi bi-key-fill text-purple me-2"></i> Security & Password
+                  </button>
+                </h2>
+                <div id="collapseSecurity" class="accordion-collapse collapse" aria-labelledby="headingSecurity" data-bs-parent="#profileSettingsAccordion">
+                  <div class="accordion-body bg-light">
+                    <div id="changePasswordAlert" class="alert alert-info d-none small py-2"></div>
+                    <form id="changePasswordForm">
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label fw-semibold small">New Password</label>
+                          <div class="input-group">
+                            <input type="password" id="profileNewPassword" class="form-control" minlength="6" placeholder="At least 6 characters" required />
+                            <button class="btn btn-outline-secondary password-toggle-btn" type="button" data-target="profileNewPassword">
+                              <i class="bi bi-eye"></i>
+                            </button>
+                          </div>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label fw-semibold small">Confirm New Password</label>
+                          <div class="input-group">
+                            <input type="password" id="profileConfirmPassword" class="form-control" minlength="6" placeholder="Re-enter password" required />
+                            <button class="btn btn-outline-secondary password-toggle-btn" type="button" data-target="profileConfirmPassword">
+                              <i class="bi bi-eye"></i>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="mt-3 d-flex justify-content-end">
+                        <button type="submit" id="btnChangePassword" class="btn btn-purple fw-bold px-4">
+                          <i class="bi bi-shield-check me-1"></i> Update Password
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Quiz History Card -->
+            <div class="card p-3 border mb-4">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold mb-0 text-purple"><i class="bi bi-clock-history me-1"></i> Your Recent Quiz Attempts</h6>
+                <a href="history.html" class="small text-decoration-none fw-semibold">View All &rarr;</a>
+              </div>
+              <div id="profileRecentAttempts">
+                <div class="text-muted small py-2">No quiz attempts recorded yet. Start practicing to see your performance!</div>
+              </div>
+            </div>
+
+            <!-- Profile Actions Footer -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-2 border-top">
+              <a href="practice.html" class="btn btn-purple fw-bold shadow-sm">
+                <i class="bi bi-play-circle-fill me-1"></i> Start a Practice Quiz
+              </a>
+              <div class="d-flex gap-2">
+                <a href="progress.html" class="btn btn-outline-secondary fw-semibold">
+                  <i class="bi bi-graph-up me-1"></i> Analytics
+                </a>
+                <button type="button" id="btnSignOutProfile" class="btn btn-outline-danger fw-semibold">
+                  <i class="bi bi-box-arrow-left me-1"></i> Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========================================== -->
+          <!-- State 2: User Logged Out (Sign In & Sign Up) -->
+          <!-- ========================================== -->
+          <div id="loggedOutAuthView">
+            <div class="text-center mb-4">
+              <span class="badge bg-purple-light text-purple px-3 py-1 mb-2 fw-semibold">
+                <i class="bi bi-stars me-1"></i> EngiQuiz Cloud Account
+              </span>
+              <h1 class="fw-bold mb-1">Student Portal</h1>
+              <p class="text-muted">Sign in or register to sync your quiz scores, track weak topics, and maintain your daily practice streak.</p>
+            </div>
+
+            <!-- Nav Tabs -->
+            <ul class="nav nav-tabs justify-content-center mb-4" id="authTab" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="signin-tab" data-bs-toggle="tab" data-bs-target="#signin-pane" type="button" role="tab" aria-selected="true">
+                  <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup-pane" type="button" role="tab" aria-selected="false">
+                  <i class="bi bi-person-plus me-1"></i> Create Account
+                </button>
+              </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="authTabContent">
+              <!-- ========================================== -->
+              <!-- SIGN IN PANE -->
+              <!-- ========================================== -->
+              <div class="tab-pane fade show active" id="signin-pane" role="tabpanel" tabindex="0">
+                <div id="signInAlert" class="alert alert-danger d-none" role="alert"></div>
+
+                <form id="signInForm">
+                  <div class="mb-3">
+                    <label for="loginEmail" class="form-label fw-semibold">Email Address</label>
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                      <input type="email" id="loginEmail" class="form-control" placeholder="student@example.edu" required />
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <label for="loginPassword" class="form-label fw-semibold mb-0">Password</label>
+                      <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-purple" id="btnForgotToggle">
+                        Forgot password?
+                      </button>
+                    </div>
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                      <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required />
+                      <button class="btn btn-outline-secondary password-toggle-btn" type="button" data-target="loginPassword">
+                        <i class="bi bi-eye"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Collapsible Forgot Password Drawer -->
+                  <div id="forgotPasswordCollapse" class="card p-3 mb-3 border-warning-subtle bg-warning-subtle d-none">
+                    <div class="fw-bold small mb-1 text-dark"><i class="bi bi-info-circle-fill text-warning me-1"></i> Reset Password</div>
+                    <p class="small text-muted mb-2">Enter your email address and new password below to reset your credentials directly in MongoDB Atlas:</p>
+                    <div class="row g-2 mb-2">
+                      <div class="col-sm-6">
+                        <input type="email" id="resetEmail" class="form-control form-control-sm" placeholder="Your registered email" />
+                      </div>
+                      <div class="col-sm-6">
+                        <input type="password" id="resetNewPass" class="form-control form-control-sm" placeholder="New password (min 6 chars)" />
+                      </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                      <button type="button" id="btnSubmitReset" class="btn btn-sm btn-warning fw-bold">Confirm Reset</button>
+                      <button type="button" id="btnCancelReset" class="btn btn-sm btn-outline-secondary">Cancel</button>
+                    </div>
+                  </div>
+
+                  <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="rememberMeCheck" checked />
+                      <label class="form-check-label small text-muted" for="rememberMeCheck">Remember me</label>
+                    </div>
+                    <span class="small text-muted"><i class="bi bi-database-check text-success"></i> Cloud Synchronized</span>
+                  </div>
+
+                  <button type="submit" id="btnSubmitLogin" class="btn btn-purple btn-lg w-100 fw-bold mb-3 shadow-sm">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Sign In to EngiQuiz
+                  </button>
+                </form>
+
+                <!-- 1-Click Demo Login Box -->
+                <div class="p-3 border rounded bg-light text-center">
+                  <div class="small text-muted mb-2">Want to test immediately with prepared question data?</div>
+                  <button type="button" id="btnDemoLogin" class="btn btn-outline-purple btn-sm fw-bold">
+                    <i class="bi bi-lightning-charge-fill me-1"></i> 1-Click Demo Login (Alex Chen · CSE)
+                  </button>
+                </div>
+              </div>
+
+              <!-- ========================================== -->
+              <!-- SIGN UP PANE -->
+              <!-- ========================================== -->
+              <div class="tab-pane fade" id="signup-pane" role="tabpanel" tabindex="0">
+                <div id="signUpAlert" class="alert alert-danger d-none" role="alert"></div>
+
+                <form id="signUpForm">
+                  <div class="mb-3">
+                    <label for="regName" class="form-label fw-semibold">Full Name</label>
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="bi bi-person"></i></span>
+                      <input type="text" id="regName" class="form-control" placeholder="e.g. Maya Sharma" required />
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="regEmail" class="form-label fw-semibold">Email Address</label>
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                      <input type="email" id="regEmail" class="form-control" placeholder="maya@university.edu" required />
+                    </div>
+                  </div>
+
+                  <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                      <label for="regPassword" class="form-label fw-semibold">Password (min. 6 chars)</label>
+                      <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                        <input type="password" id="regPassword" class="form-control" placeholder="Create password" minlength="6" required />
+                        <button class="btn btn-outline-secondary password-toggle-btn" type="button" data-target="regPassword">
+                          <i class="bi bi-eye"></i>
+                        </button>
+                      </div>
+                      <div class="progress mt-1 d-none" id="regPasswordProgress" style="height: 4px;">
+                        <div class="progress-bar" id="regPasswordProgressBar" style="width: 0%;"></div>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="regPasswordConfirm" class="form-label fw-semibold">Confirm Password</label>
+                      <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                        <input type="password" id="regPasswordConfirm" class="form-control" placeholder="Re-enter password" minlength="6" required />
+                        <button class="btn btn-outline-secondary password-toggle-btn" type="button" data-target="regPasswordConfirm">
+                          <i class="bi bi-eye"></i>
+                        </button>
+                      </div>
+                      <div id="confirmFeedback" class="small mt-1 text-danger d-none">Passwords do not match</div>
+                    </div>
+                  </div>
+
+                  <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                      <label for="regBranch" class="form-label fw-semibold">Engineering Branch</label>
+                      <select id="regBranch" class="form-select">
+                        <option value="Computer Science & Engineering (CSE)">Computer Science & Engineering (CSE)</option>
+                        <option value="Information Technology (IT)">Information Technology (IT)</option>
+                        <option value="Artificial Intelligence & Data Science (AIDS)">Artificial Intelligence & Data Science (AIDS)</option>
+                        <option value="Electronics & Communication (ECE)">Electronics & Communication (ECE)</option>
+                        <option value="Electrical & Electronics (EEE)">Electrical & Electronics (EEE)</option>
+                        <option value="Mechanical Engineering (MECH)">Mechanical Engineering (MECH)</option>
+                        <option value="Civil Engineering (CIVIL)">Civil Engineering (CIVIL)</option>
+                      </select>
+                    </div>
+
+                    <div class="col-md-6">
+                      <label for="regGoal" class="form-label fw-semibold">Target Exam / Goal</label>
+                      <select id="regGoal" class="form-select">
+                        <option value="Campus Placements & Coding Rounds">Campus Placements & Coding Rounds</option>
+                        <option value="GATE & PSU Examinations">GATE & PSU Examinations</option>
+                        <option value="Technical Interviews & FAANG">Technical Interviews & FAANG</option>
+                        <option value="Semester & University Exams">Semester & University Exams</option>
+                        <option value="Competitive Programming & Upskilling">Competitive Programming & Upskilling</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Avatar Selection -->
+                  <div class="mb-4">
+                    <label class="form-label fw-semibold d-block">Choose Your Student Avatar</label>
+                    <div class="avatar-select-grid" id="avatarSelector">
+                      <button type="button" class="avatar-btn active" data-avatar="🎓">🎓</button>
+                      <button type="button" class="avatar-btn" data-avatar="💻">💻</button>
+                      <button type="button" class="avatar-btn" data-avatar="⚡">⚡</button>
+                      <button type="button" class="avatar-btn" data-avatar="🚀">🚀</button>
+                      <button type="button" class="avatar-btn" data-avatar="🔬">🔬</button>
+                      <button type="button" class="avatar-btn" data-avatar="🤖">🤖</button>
+                      <button type="button" class="avatar-btn" data-avatar="🎯">🎯</button>
+                      <button type="button" class="avatar-btn" data-avatar="🏆">🏆</button>
+                    </div>
+                    <input type="hidden" id="selectedAvatar" value="🎓" />
+                  </div>
+
+                  <button type="submit" id="btnSubmitRegister" class="btn btn-purple btn-lg w-100 fw-bold shadow-sm">
+                    <i class="bi bi-person-check-fill me-1"></i> Create Account & Sync to Atlas
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="engi-footer">
+      <div class="container text-center">
+        <p class="mb-0">EngiQuiz — Powered with MongoDB Atlas for persistent student records.</p>
+      </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="data/subjects.js"></script>
+    <script src="data/questions.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/questions.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+
+    <script>
+      let chosenAvatar = "🎓";
+
+      document.addEventListener("DOMContentLoaded", () => {
+        checkMongoConnection();
+        renderView();
+        setupEventListeners();
+      });
+
+      async function checkMongoConnection(isRetry = false) {
+        const dot = document.getElementById("mongoDot");
+        const statusText = document.getElementById("mongoStatusText");
+        const clusterBadge = document.getElementById("mongoClusterBadge");
+        const detailText = document.getElementById("mongoDetailText");
+        const quickRetryBtn = document.getElementById("btnQuickRetry");
+        const whitelistNotice = document.getElementById("mongoWhitelistNotice");
+        const noticeCluster = document.getElementById("mongoNoticeCluster");
+
+        if (isRetry) {
+          statusText.textContent = "Testing MongoDB Atlas connection...";
+          quickRetryBtn?.classList.add("disabled");
+        }
+
+        try {
+          const status = isRetry ? await Auth.retryMongoConnection() : await Auth.getMongoStatus();
+          quickRetryBtn?.classList.remove("disabled");
+
+          if (status.connected) {
+            statusText.textContent = "MongoDB Atlas: Connected & Synchronized";
+            clusterBadge.className = "badge bg-success ms-2";
+            clusterBadge.textContent = status.cluster || "MongoDB Atlas Cluster";
+            detailText.innerHTML = `<i class="bi bi-shield-check text-success"></i> Ping: ${status.pingMs || 12}ms · Cloud DB Active`;
+            whitelistNotice?.classList.add("d-none");
+            quickRetryBtn?.classList.add("d-none");
+            if (dot) dot.style.backgroundColor = "#10b981";
+          } else if (status.isIpWhitelistPending || (status.error && status.error.includes("IP Whitelist"))) {
+            statusText.textContent = "MongoDB Atlas: Network Access Whitelist Pending";
+            clusterBadge.className = "badge bg-warning text-dark ms-2";
+            clusterBadge.textContent = status.cluster || "Atlas Cluster Detected";
+            detailText.innerHTML = `<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill"></i> IP Whitelist required</span>`;
+            if (noticeCluster && status.cluster) noticeCluster.textContent = status.cluster;
+            whitelistNotice?.classList.remove("d-none");
+            quickRetryBtn?.classList.remove("d-none");
+            if (dot) dot.style.backgroundColor = "#f59e0b";
+          } else {
+            statusText.textContent = "MongoDB Atlas: Ready (Local Sandbox Active)";
+            clusterBadge.className = "badge bg-purple ms-2";
+            clusterBadge.textContent = "Atlas Driver Ready";
+            detailText.innerHTML = `Running local persistence. Set <code class="small">MONGODB_URI</code> to link your cluster.`;
+            whitelistNotice?.classList.add("d-none");
+            quickRetryBtn?.classList.add("d-none");
+            if (dot) dot.style.backgroundColor = "#7c3aed";
+          }
+        } catch {
+          statusText.textContent = "MongoDB Atlas: Sandbox Ready";
+          whitelistNotice?.classList.add("d-none");
+        }
+      }
+
+      function renderView() {
+        const user = Auth.getUser();
+        const loggedInView = document.getElementById("loggedInProfileView");
+        const loggedOutView = document.getElementById("loggedOutAuthView");
+
+        if (user) {
+          loggedInView.classList.remove("d-none");
+          loggedOutView.classList.add("d-none");
+
+          document.getElementById("profileViewAvatar").textContent = user.avatar || "🎓";
+          document.getElementById("profileViewName").textContent = user.name;
+          document.getElementById("profileViewEmail").textContent = user.email;
+          document.getElementById("profileViewBranch").textContent = user.branch;
+          document.getElementById("profileViewGoal").textContent = user.targetExam;
+          document.getElementById("profileBranchText").textContent = user.branch.split("(")[0];
+          document.getElementById("profileGoalText").textContent = user.targetExam;
+
+          // Populate edit form
+          document.getElementById("editProfileName").value = user.name;
+          document.getElementById("editProfileBranch").value = user.branch;
+          document.getElementById("editProfileGoal").value = user.targetExam;
+          chosenAvatar = user.avatar || "🎓";
+
+          // Render recent quiz attempts
+          renderRecentAttempts();
+        } else {
+          loggedInView.classList.add("d-none");
+          loggedOutView.classList.remove("d-none");
+        }
+      }
+
+      function renderRecentAttempts() {
+        const container = document.getElementById("profileRecentAttempts");
+        if (!container || typeof Storage === "undefined") return;
+
+        const history = Storage.getHistory() || [];
+        if (history.length === 0) {
+          container.innerHTML = `<div class="text-muted small py-2">No quiz attempts recorded yet. Start practicing to see your performance!</div>`;
+          return;
+        }
+
+        const recent = history.slice(0, 4);
+        let html = `<div class="list-group list-group-flush">`;
+        recent.forEach(item => {
+          const dateStr = item.date ? new Date(item.date).toLocaleDateString() : "Recently";
+          const accuracy = item.accuracy || (item.totalQuestions ? Math.round((item.score / item.totalQuestions) * 100) : 0);
+          const badgeClass = accuracy >= 70 ? "bg-success" : accuracy >= 40 ? "bg-warning text-dark" : "bg-danger";
+
+          html += `
+            <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center bg-transparent">
+              <div>
+                <div class="fw-bold text-truncate" style="max-width: 320px;">${item.subjectName || "Engineering Quiz"}</div>
+                <div class="small text-muted">${item.totalQuestions} Questions · ${dateStr}</div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge ${badgeClass} px-2 py-1">${accuracy}%</span>
+                <span class="small fw-semibold text-purple">${item.score}/${item.totalQuestions}</span>
+              </div>
+            </div>
+          `;
+        });
+        html += `</div>`;
+        container.innerHTML = html;
+      }
+
+      function setupEventListeners() {
+        // Avatar selection
+        document.querySelectorAll("#avatarSelector .avatar-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            document.querySelectorAll("#avatarSelector .avatar-btn").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            chosenAvatar = btn.getAttribute("data-avatar");
+            document.getElementById("selectedAvatar").value = chosenAvatar;
+          });
+        });
+
+        // Edit form avatar buttons
+        document.querySelectorAll(".edit-avatar-opt").forEach(btn => {
+          btn.addEventListener("click", () => {
+            chosenAvatar = btn.getAttribute("data-av");
+            document.querySelectorAll(".edit-avatar-opt").forEach(b => b.classList.remove("btn-purple", "text-white"));
+            btn.classList.add("btn-purple", "text-white");
+          });
+        });
+
+        // Password visibility toggle buttons
+        document.querySelectorAll(".password-toggle-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const targetId = btn.getAttribute("data-target");
+            const input = document.getElementById(targetId);
+            if (input) {
+              const isPassword = input.type === "password";
+              input.type = isPassword ? "text" : "password";
+              btn.innerHTML = isPassword ? `<i class="bi bi-eye-slash"></i>` : `<i class="bi bi-eye"></i>`;
+            }
+          });
+        });
+
+        // Password strength meter
+        const regPassInput = document.getElementById("regPassword");
+        const regPassWrap = document.getElementById("regPasswordProgress");
+        const regPassBar = document.getElementById("regPasswordProgressBar");
+        regPassInput?.addEventListener("input", (e) => {
+          const val = e.target.value;
+          if (!val) {
+            regPassWrap?.classList.add("d-none");
+            return;
+          }
+          regPassWrap?.classList.remove("d-none");
+          const strength = Auth.checkPasswordStrength(val);
+          if (regPassBar) {
+            regPassBar.style.width = `${strength.percent}%`;
+            regPassBar.className = `progress-bar ${strength.color}`;
+          }
+        });
+
+        // Confirm password matching check
+        const regConfirmInput = document.getElementById("regPasswordConfirm");
+        const confirmFeedback = document.getElementById("confirmFeedback");
+        function checkPassMatch() {
+          if (!regConfirmInput?.value) {
+            confirmFeedback?.classList.add("d-none");
+            return;
+          }
+          if (regConfirmInput.value !== regPassInput.value) {
+            confirmFeedback.textContent = "Passwords do not match";
+            confirmFeedback.className = "small mt-1 text-danger";
+            confirmFeedback.classList.remove("d-none");
+          } else {
+            confirmFeedback.textContent = "Passwords match ✓";
+            confirmFeedback.className = "small mt-1 text-success";
+            confirmFeedback.classList.remove("d-none");
+          }
+        }
+        regConfirmInput?.addEventListener("input", checkPassMatch);
+        regPassInput?.addEventListener("input", checkPassMatch);
+
+        // Forgot password toggle & submit
+        document.getElementById("btnForgotToggle")?.addEventListener("click", () => {
+          const collapse = document.getElementById("forgotPasswordCollapse");
+          collapse?.classList.toggle("d-none");
+        });
+        document.getElementById("btnCancelReset")?.addEventListener("click", () => {
+          document.getElementById("forgotPasswordCollapse")?.classList.add("d-none");
+        });
+        document.getElementById("btnSubmitReset")?.addEventListener("click", async () => {
+          const email = document.getElementById("resetEmail").value.trim();
+          const newPassword = document.getElementById("resetNewPass").value;
+          const btn = document.getElementById("btnSubmitReset");
+
+          if (!email || !newPassword) {
+            alert("Please enter both email and new password.");
+            return;
+          }
+          if (newPassword.length < 6) {
+            alert("New password must be at least 6 characters.");
+            return;
+          }
+
+          btn.disabled = true;
+          btn.textContent = "Updating...";
+          try {
+            const res = await Auth.resetPassword(email, newPassword);
+            alert(res.message || "Password updated! You can now sign in.");
+            document.getElementById("loginEmail").value = email;
+            document.getElementById("loginPassword").value = newPassword;
+            document.getElementById("forgotPasswordCollapse").classList.add("d-none");
+          } catch (err) {
+            alert("Reset error: " + err.message);
+          } finally {
+            btn.disabled = false;
+            btn.textContent = "Confirm Reset";
+          }
+        });
+
+        // Sign In Form
+        document.getElementById("signInForm")?.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const email = document.getElementById("loginEmail").value.trim();
+          const password = document.getElementById("loginPassword").value;
+          const alertEl = document.getElementById("signInAlert");
+          const btn = document.getElementById("btnSubmitLogin");
+
+          alertEl.classList.add("d-none");
+          btn.disabled = true;
+          btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Signing in...`;
+
+          try {
+            await Auth.login(email, password);
+            renderView();
+            Auth.renderNavUser();
+            Auth.applyPersonalization();
+          } catch (err) {
+            alertEl.textContent = err.message || "Failed to sign in.";
+            alertEl.classList.remove("d-none");
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="bi bi-box-arrow-in-right me-1"></i> Sign In to EngiQuiz`;
+          }
+        });
+
+        // 1-Click Demo Login
+        document.getElementById("btnDemoLogin")?.addEventListener("click", async () => {
+          const btn = document.getElementById("btnDemoLogin");
+          btn.disabled = true;
+          btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Loading demo account...`;
+          try {
+            await Auth.login("student@engiquiz.edu", "demo123");
+            renderView();
+            Auth.renderNavUser();
+            Auth.applyPersonalization();
+          } catch (err) {
+            alert("Demo login error: " + err.message);
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="bi bi-lightning-charge-fill me-1"></i> 1-Click Demo Login (Alex Chen · CSE)`;
+          }
+        });
+
+        // Sign Up Form
+        document.getElementById("signUpForm")?.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const name = document.getElementById("regName").value.trim();
+          const email = document.getElementById("regEmail").value.trim();
+          const password = document.getElementById("regPassword").value;
+          const confirmPass = document.getElementById("regPasswordConfirm")?.value;
+          const branch = document.getElementById("regBranch").value;
+          const targetExam = document.getElementById("regGoal").value;
+          const avatar = chosenAvatar;
+          const alertEl = document.getElementById("signUpAlert");
+          const btn = document.getElementById("btnSubmitRegister");
+
+          if (confirmPass && password !== confirmPass) {
+            alertEl.textContent = "Passwords do not match. Please re-check.";
+            alertEl.classList.remove("d-none");
+            return;
+          }
+
+          alertEl.classList.add("d-none");
+          btn.disabled = true;
+          btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Creating profile...`;
+
+          try {
+            await Auth.register({ name, email, password, branch, targetExam, avatar });
+            renderView();
+            Auth.renderNavUser();
+            Auth.applyPersonalization();
+          } catch (err) {
+            alertEl.textContent = err.message || "Failed to create account.";
+            alertEl.classList.remove("d-none");
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="bi bi-person-check-fill me-1"></i> Create Account & Sync to Atlas`;
+          }
+        });
+
+        // Edit Profile Form
+        document.getElementById("editProfileForm")?.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const name = document.getElementById("editProfileName").value.trim();
+          const branch = document.getElementById("editProfileBranch").value;
+          const targetExam = document.getElementById("editProfileGoal").value;
+          const avatar = chosenAvatar;
+
+          try {
+            await Auth.updateProfile({ name, branch, targetExam, avatar });
+            renderView();
+            alert("Profile successfully updated and synced with MongoDB Atlas!");
+          } catch (err) {
+            alert("Could not update profile: " + err.message);
+          }
+        });
+
+        // Change Password Form
+        document.getElementById("changePasswordForm")?.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const user = Auth.getUser();
+          if (!user || !user.email) return;
+
+          const newPass = document.getElementById("profileNewPassword").value;
+          const confirmPass = document.getElementById("profileConfirmPassword").value;
+          const alertEl = document.getElementById("changePasswordAlert");
+          const btn = document.getElementById("btnChangePassword");
+
+          if (newPass !== confirmPass) {
+            alertEl.textContent = "Passwords do not match.";
+            alertEl.className = "alert alert-danger small py-2";
+            alertEl.classList.remove("d-none");
+            return;
+          }
+
+          btn.disabled = true;
+          btn.textContent = "Updating...";
+          try {
+            await Auth.resetPassword(user.email, newPass);
+            alertEl.textContent = "Password updated successfully in MongoDB Atlas!";
+            alertEl.className = "alert alert-success small py-2";
+            alertEl.classList.remove("d-none");
+            document.getElementById("changePasswordForm").reset();
+          } catch (err) {
+            alertEl.textContent = "Error updating password: " + err.message;
+            alertEl.className = "alert alert-danger small py-2";
+            alertEl.classList.remove("d-none");
+          } finally {
+            btn.disabled = false;
+            btn.textContent = "Update Password";
+          }
+        });
+
+        // Sign out button on profile view
+        document.getElementById("btnSignOutProfile")?.addEventListener("click", () => {
+          Auth.logout();
+        });
+
+        // Retry MongoDB connection buttons
+        document.getElementById("btnRetryMongo")?.addEventListener("click", () => {
+          checkMongoConnection(true);
+        });
+        document.getElementById("btnQuickRetry")?.addEventListener("click", () => {
+          checkMongoConnection(true);
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quiz in Progress - EngiQuiz</title>
+    <meta name="description" content="EngiQuiz distraction-free interactive test session." />
+
+    <!-- Bootstrap 5 CSS & Icons CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+    <!-- Custom Theme Styles -->
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/quiz.css" />
+    <link rel="stylesheet" href="css/responsive.css" />
+  </head>
+  <body class="bg-body">
+    <!-- Quiz Header Bar -->
+    <header class="py-2 border-bottom bg-card sticky-top shadow-sm">
+      <div class="container d-flex justify-content-between align-items-center">
+        <a class="navbar-brand py-0 fs-5" href="index.html">
+          <span class="brand-logo-icon" style="width: 28px; height: 28px; font-size: 1rem;"><i class="bi bi-mortarboard-fill"></i></span>
+          <span class="d-none d-sm-inline">EngiQuiz</span>
+        </a>
+
+        <!-- Middle: Subject & Topic -->
+        <div id="quizHeaderSubject" class="fw-bold text-center text-truncate px-2" style="max-width: 320px;">
+          Engineering Quiz
+        </div>
+
+        <!-- Right: Timer & Theme -->
+        <div class="d-flex align-items-center gap-2">
+          <div id="quizTimerDisplay" class="quiz-timer-box" title="Remaining Time">
+            <i class="bi bi-clock-history"></i> 10:00
+          </div>
+          <button id="themeToggleBtn" type="button" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 34px; height: 34px;" aria-label="Toggle theme">
+            <i class="bi bi-moon-stars-fill"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Time's Up Alert Banner -->
+    <div id="timeUpAlert" class="alert alert-danger text-center mb-0 rounded-0 d-none" role="alert">
+      <i class="bi bi-alarm-fill me-2 fs-5"></i>
+      <strong>Time's up!</strong> Submitting your quiz now...
+    </div>
+
+    <!-- Main Quiz Interface -->
+    <main class="quiz-container">
+      <div class="container">
+        <!-- Progress Counter Bar -->
+        <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+          <span id="quizQuestionCounter" class="fw-bold text-purple fs-6">Question 1 of 10</span>
+          <span id="quizDiffBadge" class="badge badge-diff-medium">Medium</span>
+        </div>
+
+        <div class="quiz-progress-bar mb-4">
+          <div id="quizProgressFill" class="quiz-progress-fill" style="width: 10%;"></div>
+        </div>
+
+        <div class="row g-4">
+          <!-- Main Question Area -->
+          <div class="col-lg-8">
+            <div class="question-card shadow-sm">
+              <div class="question-tag-bar">
+                <span class="text-muted small fw-semibold text-uppercase letter-spacing-1">Select the best answer</span>
+                <button type="button" id="btnBookmarkCurrent" class="btn-bookmark" title="Bookmark question">
+                  <i class="bi bi-star"></i>
+                </button>
+              </div>
+
+              <!-- Question Prompt -->
+              <div id="quizQuestionPrompt" class="question-prompt">
+                Loading question...
+              </div>
+
+              <!-- 4 Randomized Options -->
+              <div id="quizOptionsContainer" class="options-grid"></div>
+
+              <!-- Navigation Controls -->
+              <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                <button type="button" id="btnPrevQ" class="btn btn-outline-secondary px-4 fw-bold" disabled>
+                  <i class="bi bi-arrow-left me-1"></i> Previous
+                </button>
+                <div class="d-flex gap-2">
+                  <button type="button" id="btnNextQ" class="btn btn-purple px-4 fw-bold">
+                    Next <i class="bi bi-arrow-right ms-1"></i>
+                  </button>
+                  <button type="button" id="btnSubmitQuiz" class="btn btn-outline-danger px-4 fw-bold">
+                    Submit Quiz
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Question Navigator Sidebar -->
+          <div class="col-lg-4">
+            <div class="nav-matrix-card shadow-sm mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h5 class="fw-bold fs-6 mb-0">Question Navigator</h5>
+                  <span class="text-muted small">Jump to question</span>
+                </div>
+                <button type="button" id="btnShuffleQuizOrder" class="btn btn-sm btn-outline-purple py-1 px-2 fw-semibold" title="Shuffle questions presentation order">
+                  <i class="bi bi-shuffle me-1"></i> Shuffle
+                </button>
+              </div>
+
+              <!-- Matrix Grid -->
+              <div id="quizNavMatrix" class="matrix-grid"></div>
+
+              <!-- Legend -->
+              <div class="matrix-legend">
+                <div class="legend-item">
+                  <span class="legend-dot dot-answered"></span> Answered
+                </div>
+                <div class="legend-item">
+                  <span class="legend-dot dot-current"></span> Current
+                </div>
+                <div class="legend-item">
+                  <span class="legend-dot dot-unanswered"></span> Unanswered
+                </div>
+              </div>
+            </div>
+
+            <!-- Quiz Guidance Box -->
+            <div class="card p-3 small text-muted bg-card">
+              <div class="d-flex align-items-center gap-2 mb-1 text-main fw-bold">
+                <i class="bi bi-info-circle text-purple"></i> Tips
+              </div>
+              <ul class="mb-0 ps-3">
+                <li>Options are randomized for every attempt.</li>
+                <li>You can click any number to revisit questions.</li>
+                <li>Quiz will auto-submit when the timer hits 00:00.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Submit Confirmation Modal -->
+    <div class="modal fade" id="submitConfirmModal" tabindex="-1" aria-labelledby="submitModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-bottom-0 pb-0">
+            <h5 class="modal-title fw-bold" id="submitModalLabel">Submit Quiz?</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body py-4">
+            <p id="submitModalSummaryText" class="mb-0">
+              Are you sure you want to complete and submit your quiz?
+            </p>
+          </div>
+          <div class="modal-footer border-top-0 pt-0">
+            <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Resume Test</button>
+            <button type="button" id="modalConfirmSubmitBtn" class="btn btn-purple px-4 fw-bold">Confirm & Submit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="data/subjects.js"></script>
+    <script src="data/questions.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/questions.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/quiz.js"></script>
+  </body>
+</html>

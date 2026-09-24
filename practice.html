@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Your Quiz - EngiQuiz</title>
+    <meta name="description" content="Configure and launch your customized engineering practice quiz with adjustable topics, difficulties and question counts." />
+    <meta property="og:title" content="Create Your Quiz - EngiQuiz" />
+    <meta property="og:description" content="Configure and launch your customized engineering practice quiz with adjustable topics, difficulties and question counts." />
+    <meta property="og:type" content="website" />
+
+    <!-- Bootstrap 5 CSS & Icons CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+    <!-- Custom Theme Styles -->
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/dashboard.css" />
+    <link rel="stylesheet" href="css/responsive.css" />
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg engi-navbar">
+      <div class="container">
+        <a class="navbar-brand" href="index.html">
+          <span class="brand-logo-icon"><i class="bi bi-mortarboard-fill"></i></span>
+          <span>EngiQuiz</span>
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#engiNav" aria-controls="engiNav" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="engiNav">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+            <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-house-door me-1"></i> Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="subjects.html"><i class="bi bi-grid-fill me-1"></i> Subjects</a></li>
+            <li class="nav-item"><a class="nav-link active" href="practice.html"><i class="bi bi-pencil-square me-1"></i> Practice</a></li>
+            <li class="nav-item"><a class="nav-link" href="progress.html"><i class="bi bi-graph-up me-1"></i> Progress</a></li>
+            <li class="nav-item"><a class="nav-link" href="bookmarks.html"><i class="bi bi-bookmark-star me-1"></i> Bookmarks</a></li>
+            <li class="nav-item"><a class="nav-link" href="history.html"><i class="bi bi-clock-history me-1"></i> History</a></li>
+          </ul>
+
+          <div class="d-flex align-items-center gap-3">
+            <div id="navStreakBadge" class="streak-pill" title="Daily Practice Streak">
+              <i class="bi bi-fire text-warning"></i> 0 Days
+            </div>
+            <div id="navUserContainer"></div>
+            <button id="themeToggleBtn" type="button" class="btn-theme-toggle" aria-label="Toggle theme">
+              <i class="bi bi-moon-stars-fill text-purple"></i>
+              <span class="theme-text d-none d-sm-inline">Dark Mode</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="py-5">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-lg-8">
+            <!-- Header Card -->
+            <div class="card p-4 p-md-5 shadow-sm border mb-4">
+              <div class="text-center mb-4">
+                <span class="badge bg-purple-light text-purple px-3 py-1 mb-2 fw-semibold">Custom Quiz Generator</span>
+                <h1 class="fw-bold mb-1">Create Your Quiz</h1>
+                <p class="text-muted">Choose your subject, target topics, difficulty levels, and question count.</p>
+              </div>
+
+              <form id="quizConfigForm">
+                <!-- Subject Selection -->
+                <div class="mb-4">
+                  <label for="configSubjectSelect" class="form-label fw-bold">
+                    <i class="bi bi-journal-code text-purple me-1"></i> Subject
+                  </label>
+                  <select id="configSubjectSelect" class="form-select form-select-lg">
+                    <!-- Populated dynamically -->
+                  </select>
+                </div>
+
+                <!-- Topic Selection -->
+                <div class="mb-4">
+                  <label for="configTopicSelect" class="form-label fw-bold">
+                    <i class="bi bi-diagram-2 text-purple me-1"></i> Topic
+                  </label>
+                  <select id="configTopicSelect" class="form-select">
+                    <option value="All Topics">All Topics</option>
+                  </select>
+                </div>
+
+                <!-- Difficulty Checkboxes -->
+                <div class="mb-4">
+                  <label class="form-label fw-bold d-block">
+                    <i class="bi bi-sliders text-purple me-1"></i> Difficulty Level
+                    <small class="text-muted fw-normal ms-1">(Select one or more)</small>
+                  </label>
+                  <div class="row g-2">
+                    <div class="col-md-4">
+                      <div class="form-check p-3 border rounded bg-card h-100">
+                        <input class="form-check-input diff-checkbox" type="checkbox" id="diffEasy" value="Easy" checked />
+                        <label class="form-check-label fw-semibold text-success ms-1" for="diffEasy">
+                          Easy
+                          <span class="d-block small text-muted fw-normal">Fundamentals & Syntax</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-check p-3 border rounded bg-card h-100">
+                        <input class="form-check-input diff-checkbox" type="checkbox" id="diffMedium" value="Medium" checked />
+                        <label class="form-check-label fw-semibold text-warning ms-1" for="diffMedium">
+                          Medium
+                          <span class="d-block small text-muted fw-normal">Core Logic & Applied</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-check p-3 border rounded bg-card h-100">
+                        <input class="form-check-input diff-checkbox" type="checkbox" id="diffHard" value="Hard" checked />
+                        <label class="form-check-label fw-semibold text-danger ms-1" for="diffHard">
+                          Hard
+                          <span class="d-block small text-muted fw-normal">Complex & Deep Concepts</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="diffErrorMsg" class="text-danger small mt-2 d-none">
+                    Please select at least one difficulty level.
+                  </div>
+                </div>
+
+                <!-- Number of Questions -->
+                <div class="mb-4">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label fw-bold mb-0">
+                      <i class="bi bi-123 text-purple me-1"></i> Number of Questions
+                    </label>
+                    <span class="badge bg-purple-subtle text-purple fw-semibold">Max 50 Questions</span>
+                  </div>
+                  <div class="btn-group w-100 flex-wrap" role="group" id="questionCountButtonGroup">
+                    <input type="radio" class="btn-check" name="qCountRadio" id="qCount5" value="5" autocomplete="off" />
+                    <label class="btn btn-outline-purple flex-fill py-2" for="qCount5">5</label>
+
+                    <input type="radio" class="btn-check" name="qCountRadio" id="qCount10" value="10" autocomplete="off" checked />
+                    <label class="btn btn-outline-purple flex-fill py-2" for="qCount10">10</label>
+
+                    <input type="radio" class="btn-check" name="qCountRadio" id="qCount15" value="15" autocomplete="off" />
+                    <label class="btn btn-outline-purple flex-fill py-2" for="qCount15">15</label>
+
+                    <input type="radio" class="btn-check" name="qCountRadio" id="qCount20" value="20" autocomplete="off" />
+                    <label class="btn btn-outline-purple flex-fill py-2" for="qCount20">20</label>
+
+                    <input type="radio" class="btn-check" name="qCountRadio" id="qCount25" value="25" autocomplete="off" />
+                    <label class="btn btn-outline-purple flex-fill py-2" for="qCount25">25</label>
+
+                    <input type="radio" class="btn-check" name="qCountRadio" id="qCount30" value="30" autocomplete="off" />
+                    <label class="btn btn-outline-purple flex-fill py-2" for="qCount30">30</label>
+
+                    <input type="radio" class="btn-check" name="qCountRadio" id="qCount40" value="40" autocomplete="off" />
+                    <label class="btn btn-outline-purple flex-fill py-2" for="qCount40">40</label>
+
+                    <input type="radio" class="btn-check" name="qCountRadio" id="qCount50" value="50" autocomplete="off" />
+                    <label class="btn btn-outline-purple flex-fill py-2 fw-bold" for="qCount50">50</label>
+
+                    <input type="radio" class="btn-check" name="qCountRadio" id="qCountCustom" value="custom" autocomplete="off" />
+                    <label class="btn btn-outline-purple flex-fill py-2" for="qCountCustom">Custom</label>
+                  </div>
+
+                  <!-- Custom count input -->
+                  <div id="customCountWrapper" class="mt-3 d-none">
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="bi bi-hash"></i> Custom Count</span>
+                      <input type="number" id="customCountInput" class="form-control" min="1" max="50" placeholder="Enter 1 to 50 questions..." />
+                      <span class="input-group-text text-muted small">Max: 50</span>
+                    </div>
+                    <div class="form-text text-muted">You can select up to 50 questions per test attempt.</div>
+                  </div>
+                </div>
+
+                <!-- Shuffle Questions Toggle Switch -->
+                <div class="mb-4 p-3 border rounded bg-card shadow-xs">
+                  <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
+                    <div class="me-3">
+                      <label class="form-check-label fw-bold text-body cursor-pointer" for="shuffleQuestionsToggle">
+                        <i class="bi bi-shuffle text-purple me-1"></i> Shuffle Questions & Options
+                      </label>
+                      <div class="small text-muted">
+                        Randomize question order and scramble all multiple-choice options for fresh practice.
+                      </div>
+                    </div>
+                    <input class="form-check-input fs-4 m-0" type="checkbox" role="switch" id="shuffleQuestionsToggle" checked style="cursor: pointer;" />
+                  </div>
+                </div>
+
+                <!-- Live Pool Availability Banner -->
+                <div class="p-3 rounded-3 border mb-4" id="poolStatusBanner" style="background-color: var(--primary-light);">
+                  <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                      <i class="bi bi-database-check text-purple fs-5 me-2"></i>
+                      <span class="fw-bold">Available Question Pool:</span>
+                      <span id="poolCountText" class="badge bg-purple ms-1 fs-6">0 Questions</span>
+                    </div>
+                    <div id="poolWarningText" class="text-danger small fw-semibold d-none"></div>
+                  </div>
+                </div>
+
+                <!-- Launch Button -->
+                <button type="submit" id="btnLaunchQuiz" class="btn btn-purple btn-lg w-100 fw-bold py-3 shadow-sm">
+                  <i class="bi bi-play-circle-fill me-2 fs-5"></i> Start Quiz
+                </button>
+              </form>
+            </div>
+
+            <!-- Targeted Practice Presets -->
+            <div class="card p-4">
+              <h5 class="fw-bold mb-3"><i class="bi bi-bullseye text-purple me-2"></i>Targeted Practice Modes</h5>
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <a href="quiz.html?mode=mistakes&fresh=true" class="btn btn-outline-danger w-100 p-3 text-start">
+                    <div class="fw-bold"><i class="bi bi-x-circle me-1"></i> Practice Mistakes</div>
+                    <small class="text-muted d-block mt-1">Review questions you got wrong</small>
+                  </a>
+                </div>
+                <div class="col-md-4">
+                  <a href="quiz.html?mode=bookmarks&fresh=true" class="btn btn-outline-warning w-100 p-3 text-start">
+                    <div class="fw-bold text-dark"><i class="bi bi-star-fill text-warning me-1"></i> My Bookmarks</div>
+                    <small class="text-muted d-block mt-1">Test your saved questions</small>
+                  </a>
+                </div>
+                <div class="col-md-4">
+                  <a href="quiz.html?mode=daily&fresh=true" class="btn btn-outline-primary w-100 p-3 text-start">
+                    <div class="fw-bold"><i class="bi bi-lightning-charge me-1"></i> Daily Challenge</div>
+                    <small class="text-muted d-block mt-1">Today's curated 10 questions</small>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="engi-footer">
+      <div class="container text-center">
+        <p class="mb-0">EngiQuiz — Learn. Practice. Improve.</p>
+      </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="data/subjects.js"></script>
+    <script src="data/questions.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/questions.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        initPracticeForm();
+      });
+
+      function initPracticeForm() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const preselectedSubject = urlParams.get("subject") || "Java";
+        const preselectedTopic = urlParams.get("topic") || "All Topics";
+
+        const subjectSelect = document.getElementById("configSubjectSelect");
+        const topicSelect = document.getElementById("configTopicSelect");
+        const form = document.getElementById("quizConfigForm");
+
+        if (!subjectSelect || typeof QuestionEngine === "undefined") return;
+
+        // Populate Subjects with "All Engineering Subjects" option first
+        const subjects = QuestionEngine.getSubjects();
+        subjectSelect.innerHTML = "";
+
+        // Grand Mock Option
+        const allOpt = document.createElement("option");
+        allOpt.value = "All";
+        allOpt.textContent = "🌟 All Engineering Subjects (Grand Mock Test - Up to 50 Qs)";
+        if (preselectedSubject.toLowerCase() === "all") allOpt.selected = true;
+        subjectSelect.appendChild(allOpt);
+
+        subjects.forEach(subj => {
+          const opt = document.createElement("option");
+          opt.value = subj;
+          opt.textContent = subj;
+          if (subj.toLowerCase() === preselectedSubject.toLowerCase()) {
+            opt.selected = true;
+          }
+          subjectSelect.appendChild(opt);
+        });
+
+        // Populate Topics for active subject
+        populateTopics(subjectSelect.value, preselectedTopic);
+
+        // Update pool counter
+        updateAvailablePool();
+
+        // Listeners
+        subjectSelect.addEventListener("change", () => {
+          populateTopics(subjectSelect.value);
+          updateAvailablePool();
+        });
+
+        topicSelect.addEventListener("change", () => {
+          updateAvailablePool();
+        });
+
+        document.querySelectorAll(".diff-checkbox").forEach(cb => {
+          cb.addEventListener("change", () => {
+            updateAvailablePool();
+          });
+        });
+
+        // Question count radio and custom input
+        document.querySelectorAll("input[name='qCountRadio']").forEach(radio => {
+          radio.addEventListener("change", () => {
+            const customWrapper = document.getElementById("customCountWrapper");
+            if (radio.value === "custom") {
+              customWrapper?.classList.remove("d-none");
+              document.getElementById("customCountInput")?.focus();
+            } else {
+              customWrapper?.classList.add("d-none");
+            }
+            updateAvailablePool();
+          });
+        });
+
+        document.getElementById("customCountInput")?.addEventListener("input", () => {
+          const input = document.getElementById("customCountInput");
+          if (input && parseInt(input.value, 10) > 50) {
+            input.value = "50";
+          }
+          updateAvailablePool();
+        });
+
+        // Form Submission
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+
+          const selectedSubject = subjectSelect.value;
+          const selectedTopic = topicSelect.value;
+          const shouldShuffle = document.getElementById("shuffleQuestionsToggle")?.checked ? "true" : "false";
+
+          const diffs = [];
+          document.querySelectorAll(".diff-checkbox:checked").forEach(cb => diffs.push(cb.value));
+
+          if (diffs.length === 0) {
+            document.getElementById("diffErrorMsg")?.classList.remove("d-none");
+            return;
+          }
+          document.getElementById("diffErrorMsg")?.classList.add("d-none");
+
+          let count = 10;
+          const checkedRadio = document.querySelector("input[name='qCountRadio']:checked");
+          if (checkedRadio) {
+            if (checkedRadio.value === "custom") {
+              count = parseInt(document.getElementById("customCountInput").value, 10) || 10;
+            } else {
+              count = parseInt(checkedRadio.value, 10);
+            }
+          }
+
+          // Enforce 1 to 50 range
+          count = Math.min(50, Math.max(1, count));
+
+          // Check pool availability
+          const pool = QuestionEngine.filterQuestions({
+            subject: selectedSubject,
+            topic: selectedTopic,
+            difficulties: diffs
+          });
+
+          if (pool.length === 0) {
+            alert(`No questions found for ${selectedSubject} with current filters.`);
+            return;
+          }
+
+          const finalCount = Math.min(count, pool.length);
+
+          const targetUrl = `quiz.html?subject=${encodeURIComponent(selectedSubject)}&topic=${encodeURIComponent(selectedTopic)}&difficulty=${encodeURIComponent(diffs.join(","))}&count=${finalCount}&shuffle=${shouldShuffle}&fresh=true`;
+          window.location.href = targetUrl;
+        });
+      }
+
+      function populateTopics(subject, preselected = "All Topics") {
+        const topicSelect = document.getElementById("configTopicSelect");
+        if (!topicSelect) return;
+
+        topicSelect.innerHTML = `<option value="All Topics">All Topics</option>`;
+
+        if (subject === "All") {
+          topicSelect.disabled = true;
+          return;
+        } else {
+          topicSelect.disabled = false;
+        }
+
+        const topics = QuestionEngine.getTopicsBySubject(subject);
+        topics.forEach(t => {
+          const opt = document.createElement("option");
+          opt.value = t;
+          opt.textContent = t;
+          if (t.toLowerCase() === preselected.toLowerCase()) {
+            opt.selected = true;
+          }
+          topicSelect.appendChild(opt);
+        });
+      }
+
+      function updateAvailablePool() {
+        const subject = document.getElementById("configSubjectSelect")?.value;
+        const topic = document.getElementById("configTopicSelect")?.value;
+        const diffs = [];
+        document.querySelectorAll(".diff-checkbox:checked").forEach(cb => diffs.push(cb.value));
+
+        let requestedCount = 10;
+        const checkedRadio = document.querySelector("input[name='qCountRadio']:checked");
+        if (checkedRadio) {
+          if (checkedRadio.value === "custom") {
+            requestedCount = parseInt(document.getElementById("customCountInput")?.value, 10) || 10;
+          } else {
+            requestedCount = parseInt(checkedRadio.value, 10);
+          }
+        }
+
+        const pool = QuestionEngine.filterQuestions({
+          subject,
+          topic,
+          difficulties: diffs
+        });
+
+        const poolCountText = document.getElementById("poolCountText");
+        const poolWarn = document.getElementById("poolWarningText");
+        const btnLaunch = document.getElementById("btnLaunchQuiz");
+
+        if (poolCountText) {
+          poolCountText.textContent = `${pool.length} Question${pool.length === 1 ? "" : "s"}`;
+        }
+
+        if (pool.length === 0) {
+          if (poolWarn) {
+            poolWarn.textContent = "No questions match this configuration. Please adjust topic or difficulties.";
+            poolWarn.classList.remove("d-none");
+          }
+          if (btnLaunch) btnLaunch.disabled = true;
+        } else if (requestedCount > pool.length) {
+          if (poolWarn) {
+            poolWarn.textContent = `Only ${pool.length} questions available. Quiz will be generated with all ${pool.length} questions.`;
+            poolWarn.classList.remove("d-none");
+          }
+          if (btnLaunch) btnLaunch.disabled = false;
+        } else {
+          if (poolWarn) poolWarn.classList.add("d-none");
+          if (btnLaunch) btnLaunch.disabled = false;
+        }
+      }
+    </script>
+  </body>
+</html>

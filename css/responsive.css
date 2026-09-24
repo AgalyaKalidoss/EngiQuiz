@@ -1,0 +1,96 @@
+/**
+ * EngiQuiz - Responsive Media Queries
+ * Mobile & Tablet friendly layout adjustments.
+ */
+
+@media (max-width: 991.98px) {
+  .hero-title {
+    font-size: 2.35rem;
+  }
+  
+  .score-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 767.98px) {
+  .hero-section {
+    padding: 3rem 0 2rem;
+    text-align: center;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1.05rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .question-card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .question-prompt {
+    font-size: 1.12rem;
+  }
+
+  .option-item {
+    padding: 0.9rem 1rem;
+    min-height: 52px; /* Ensure 48px+ touch target */
+  }
+
+  .option-text {
+    font-size: 0.96rem;
+  }
+
+  .score-number {
+    font-size: 3rem;
+  }
+
+  .score-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .matrix-grid {
+    grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+    gap: 0.45rem;
+  }
+
+  .matrix-btn {
+    height: 38px;
+    font-size: 0.82rem;
+  }
+
+  .btn-purple, .btn-purple-outline {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .score-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stat-card {
+    padding: 1.15rem;
+  }
+
+  .stat-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 1.3rem;
+  }
+
+  .stat-value {
+    font-size: 1.45rem;
+  }
+
+  .engi-navbar .navbar-brand {
+    font-size: 1.2rem;
+  }
+}

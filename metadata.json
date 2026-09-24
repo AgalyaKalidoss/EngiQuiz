@@ -1,0 +1,6 @@
+{
+  "name": "EngiQuiz",
+  "description": "Practice engineering concepts with randomized quizzes, adjustable difficulty and detailed performance insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

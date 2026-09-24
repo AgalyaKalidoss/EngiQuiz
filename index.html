@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EngiQuiz - Engineering Quizzes & Practice</title>
+    <meta name="description" content="Practice engineering concepts with randomized quizzes, adjustable difficulty and detailed performance insights." />
+    <meta property="og:title" content="EngiQuiz - Engineering Quizzes & Practice" />
+    <meta property="og:description" content="Practice engineering concepts with randomized quizzes, adjustable difficulty and detailed performance insights." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Bootstrap 5 CSS & Icons CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+    <!-- Custom Theme Styles -->
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/dashboard.css" />
+    <link rel="stylesheet" href="css/responsive.css" />
+  </head>
+  <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg engi-navbar">
+      <div class="container">
+        <a class="navbar-brand" href="index.html">
+          <span class="brand-logo-icon"><i class="bi bi-mortarboard-fill"></i></span>
+          <span>EngiQuiz</span>
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#engiNav" aria-controls="engiNav" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="engiNav">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+            <li class="nav-item">
+              <a class="nav-link active" href="index.html"><i class="bi bi-house-door me-1"></i> Home</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="subjects.html"><i class="bi bi-grid-fill me-1"></i> Subjects</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="practice.html"><i class="bi bi-pencil-square me-1"></i> Practice</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="progress.html"><i class="bi bi-graph-up me-1"></i> Progress</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="bookmarks.html"><i class="bi bi-bookmark-star me-1"></i> Bookmarks</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="history.html"><i class="bi bi-clock-history me-1"></i> History</a>
+            </li>
+          </ul>
+
+          <div class="d-flex align-items-center gap-3">
+            <div id="navStreakBadge" class="streak-pill" title="Daily Practice Streak">
+              <i class="bi bi-fire text-warning"></i> 0 Days
+            </div>
+            <div id="navUserContainer"></div>
+            <button id="themeToggleBtn" type="button" class="btn-theme-toggle" aria-label="Toggle theme">
+              <i class="bi bi-moon-stars-fill text-purple"></i>
+              <span class="theme-text d-none d-sm-inline">Dark Mode</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main>
+      <!-- Hero Section -->
+      <section class="hero-section">
+        <div class="container text-center text-lg-start">
+          <div class="row align-items-center">
+            <div class="col-lg-7">
+              <div class="hero-badge" id="heroUserBadge">
+                <i class="bi bi-stars"></i> Unlimited Dynamic Engineering Quizzes
+              </div>
+              <h1 class="hero-title" id="heroWelcomeTitle">
+                Master Engineering.<br />
+                <span class="text-purple">One Quiz at a Time.</span>
+              </h1>
+              <p class="hero-subtitle" id="heroWelcomeSubtitle">
+                Practice engineering concepts with randomized quizzes, adjustable difficulty and detailed performance insights.
+              </p>
+              <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-lg-start">
+                <a href="practice.html" class="btn btn-purple btn-lg px-4 shadow-sm">
+                  <i class="bi bi-play-fill me-1"></i> Start Practicing
+                </a>
+                <a href="subjects.html" class="btn btn-purple-outline btn-lg px-4">
+                  <i class="bi bi-compass me-1"></i> Explore Subjects
+                </a>
+              </div>
+              <div id="heroAuthCta"></div>
+            </div>
+            <div class="col-lg-5 mt-4 mt-lg-0">
+              <!-- Quick Stats Hero Card -->
+              <div class="card p-4 border-0 shadow-sm" style="background: linear-gradient(145deg, var(--bg-card) 0%, var(--primary-light) 100%);">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <span class="fw-bold text-uppercase small text-muted">Your Learning Status</span>
+                  <span class="badge bg-purple text-white"><i class="bi bi-shield-check"></i> Active</span>
+                </div>
+                <h4 class="fw-bold mb-3">Ready for your next challenge?</h4>
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <div class="bg-card p-2 rounded border text-center">
+                      <div class="text-muted small">Total Solved</div>
+                      <div id="dashQuestionsSolved" class="fw-bold fs-5 text-purple">0</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="bg-card p-2 rounded border text-center">
+                      <div class="text-muted small">Avg Accuracy</div>
+                      <div id="dashAverageAccuracy" class="fw-bold fs-5 text-success">0%</div>
+                    </div>
+                  </div>
+                </div>
+                <a href="practice.html" class="btn btn-purple w-100 fw-bold">
+                  <i class="bi bi-lightning-fill me-1"></i> Start New Quiz
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dashboard Statistics Bar -->
+      <section class="py-4 border-top border-bottom bg-card">
+        <div class="container">
+          <div class="row g-3">
+            <div class="col-6 col-md-3">
+              <div class="stat-card">
+                <div class="stat-icon stat-icon-purple">
+                  <i class="bi bi-card-checklist"></i>
+                </div>
+                <div>
+                  <div class="stat-label">Quizzes Taken</div>
+                  <div id="dashQuizzesTaken" class="stat-value">0</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card">
+                <div class="stat-icon stat-icon-blue">
+                  <i class="bi bi-bullseye"></i>
+                </div>
+                <div>
+                  <div class="stat-label">Best Score</div>
+                  <div id="dashBestScore" class="stat-value">0%</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card">
+                <div class="stat-icon stat-icon-amber">
+                  <i class="bi bi-fire"></i>
+                </div>
+                <div>
+                  <div class="stat-label">Current Streak</div>
+                  <div id="dashStreakDays" class="stat-value">0 Days</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card">
+                <div class="stat-icon stat-icon-green">
+                  <i class="bi bi-check-all"></i>
+                </div>
+                <div>
+                  <div class="stat-label">Overall Accuracy</div>
+                  <div class="stat-value text-success" id="dashOverallAccSummary">82%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Today's Daily Challenge -->
+      <section class="py-4">
+        <div class="container">
+          <div id="dailyChallengeCardContainer"></div>
+        </div>
+      </section>
+
+      <!-- Quick Practice Modes -->
+      <section class="py-3">
+        <div class="container">
+          <div class="card p-3 p-md-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+              <div>
+                <h4 class="fw-bold mb-1"><i class="bi bi-speedometer2 text-purple me-2"></i>Quick Practice</h4>
+                <p class="text-muted small mb-0">Jump straight into questions by target difficulty.</p>
+              </div>
+            </div>
+            <div class="row g-2">
+              <div class="col-6 col-md-3">
+                <a href="quiz.html?subject=Java&difficulty=Easy&count=10&fresh=true" class="btn btn-outline-success w-100 p-3 text-start rounded-3">
+                  <div class="fw-bold fs-6">Easy Mode</div>
+                  <small class="text-muted">Fundamentals & Syntax</small>
+                </a>
+              </div>
+              <div class="col-6 col-md-3">
+                <a href="quiz.html?subject=Java&difficulty=Medium&count=10&fresh=true" class="btn btn-outline-warning w-100 p-3 text-start rounded-3">
+                  <div class="fw-bold fs-6 text-dark">Medium Mode</div>
+                  <small class="text-muted">Core Problem Solving</small>
+                </a>
+              </div>
+              <div class="col-6 col-md-3">
+                <a href="quiz.html?subject=Java&difficulty=Hard&count=10&fresh=true" class="btn btn-outline-danger w-100 p-3 text-start rounded-3">
+                  <div class="fw-bold fs-6">Hard Mode</div>
+                  <small class="text-muted">Advanced Architecture</small>
+                </a>
+              </div>
+              <div class="col-6 col-md-3">
+                <a href="quiz.html?subject=Java&difficulty=Easy,Medium,Hard&count=10&fresh=true" class="btn btn-outline-primary w-100 p-3 text-start rounded-3">
+                  <div class="fw-bold fs-6">Mixed Difficulty</div>
+                  <small class="text-muted">Balanced Exam Prep</small>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Continue Practicing Subjects -->
+      <section class="py-4">
+        <div class="container">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h3 class="fw-bold mb-0">Continue Practicing</h3>
+              <p class="text-muted small mb-0">Select a subject to take a randomized practice test.</p>
+            </div>
+            <a href="subjects.html" class="btn btn-sm btn-purple-outline">
+              View All Subjects <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+          <div class="row" id="continuePracticingGrid"></div>
+        </div>
+      </section>
+
+      <!-- Weak Topics & Recent Activity Grid -->
+      <section class="py-4">
+        <div class="container">
+          <div class="row g-4">
+            <!-- Weak Topics -->
+            <div class="col-lg-6">
+              <div class="card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h4 class="fw-bold mb-0"><i class="bi bi-exclamation-triangle text-warning me-2"></i>Needs Practice</h4>
+                  <a href="progress.html" class="small text-purple text-decoration-none fw-bold">Detailed Analytics</a>
+                </div>
+                <p class="text-muted small mb-3">Concepts identified from your quiz history that have room for improvement.</p>
+                <div id="weakTopicsContainer"></div>
+              </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="col-lg-6">
+              <div class="card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h4 class="fw-bold mb-0"><i class="bi bi-clock-history text-purple me-2"></i>Recent Activity</h4>
+                  <a href="history.html" class="small text-purple text-decoration-none fw-bold">Full History</a>
+                </div>
+                <p class="text-muted small mb-3">Your most recent quiz attempts and performance breakdown.</p>
+                <div id="recentActivityContainer"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Key App Features -->
+      <section class="py-5 bg-card border-top mt-4">
+        <div class="container">
+          <div class="text-center max-w-700 mx-auto mb-5">
+            <span class="text-purple fw-bold text-uppercase small">Engineered for Students</span>
+            <h2 class="fw-bold">Why Practice with EngiQuiz?</h2>
+            <p class="text-muted">A fast, distraction-free environment built to prepare you for technical exams and interviews.</p>
+          </div>
+
+          <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+              <div class="feature-card">
+                <div class="feature-icon-wrapper">
+                  <i class="bi bi-shuffle"></i>
+                </div>
+                <h4 class="fw-bold fs-5">Randomized Questions</h4>
+                <p class="text-muted small mb-0">Fresh questions on every attempt with smart anti-duplicate filtering to maximize learning coverage.</p>
+              </div>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+              <div class="feature-card">
+                <div class="feature-icon-wrapper">
+                  <i class="bi bi-sliders2-vertical"></i>
+                </div>
+                <h4 class="fw-bold fs-5">Difficulty Control</h4>
+                <p class="text-muted small mb-0">Filter by Easy, Medium, Hard or customized combinations to challenge your knowledge step-by-step.</p>
+              </div>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+              <div class="feature-card">
+                <div class="feature-icon-wrapper">
+                  <i class="bi bi-graph-up-arrow"></i>
+                </div>
+                <h4 class="fw-bold fs-5">Performance Tracking</h4>
+                <p class="text-muted small mb-0">Real-time local statistics, weak topic identification, and visual charts stored privately in your browser.</p>
+              </div>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+              <div class="feature-card">
+                <div class="feature-icon-wrapper">
+                  <i class="bi bi-infinity"></i>
+                </div>
+                <h4 class="fw-bold fs-5">Unlimited Practice</h4>
+                <p class="text-muted small mb-0">No login required, no paywalls, and unlimited quiz retries. Pure engineering mastery at your own pace.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="engi-footer">
+      <div class="container">
+        <div class="row align-items-center">
+          <div class="col-md-6 text-center text-md-start mb-2 mb-md-0">
+            <span class="fw-bold text-main">EngiQuiz</span> — Learn. Practice. Improve.
+            <div class="small text-muted mt-1">Interactive Engineering Practice Platform with Personalized MongoDB Atlas Cloud Sync.</div>
+          </div>
+          <div class="col-md-6 text-center text-md-end">
+            <a href="subjects.html" class="me-3">Subjects</a>
+            <a href="practice.html" class="me-3">Practice</a>
+            <a href="progress.html" class="me-3">Progress</a>
+            <a href="bookmarks.html" class="me-3">Bookmarks</a>
+            <a href="login.html">Account</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="data/subjects.js"></script>
+    <script src="data/questions.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/questions.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/dashboard.js"></script>
+  </body>
+</html>
