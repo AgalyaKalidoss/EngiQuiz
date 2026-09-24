@@ -325,6 +325,15 @@ async function startServer() {
     }
   });
 
+  // Health check endpoint for Render and monitoring
+  app.get('/healthz', (_req: Request, res: Response) => {
+    res.status(200).send('OK');
+  });
+
+  app.get('/api/health', (_req: Request, res: Response) => {
+    res.status(200).json({ status: 'healthy', uptime: process.uptime(), timestamp: new Date().toISOString() });
+  });
+
   // ==========================================
   // Vite Frontend Middleware / Static Serving
   // ==========================================
@@ -387,9 +396,27 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`[EngiQuiz Server] Running at http://0.0.0.0:${PORT}`);
   });
+
+  // Graceful shutdown handlers to cleanly handle Render deployment rollovers without exit code 143
+  const handleShutdown = (signal: string) => {
+    console.log(`[EngiQuiz Server] Received ${signal}, closing server gracefully...`);
+    server.close(() => {
+      console.log('[EngiQuiz Server] HTTP server closed cleanly.');
+      process.exit(0);
+    });
+
+    // Force close after 5 seconds if connections hang
+    setTimeout(() => {
+      console.warn('[EngiQuiz Server] Force exiting process.');
+      process.exit(0);
+    }, 5000);
+  };
+
+  process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+  process.on('SIGINT', () => handleShutdown('SIGINT'));
 }
 
 startServer().catch(err => {
