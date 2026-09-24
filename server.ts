@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
@@ -327,7 +328,11 @@ async function startServer() {
   // ==========================================
   // Vite Frontend Middleware / Static Serving
   // ==========================================
-  if (process.env.NODE_ENV !== 'production') {
+  const distDir = path.resolve(__dirname, 'dist');
+  const distIndex = path.resolve(distDir, 'index.html');
+  const hasDist = fs.existsSync(distIndex);
+
+  if (process.env.NODE_ENV !== 'production' && !hasDist) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'mpa',
@@ -335,9 +340,50 @@ async function startServer() {
     app.use(vite.middlewares);
     console.log('[EngiQuiz Server] Vite MPA dev middleware mounted.');
   } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+    console.log(`[EngiQuiz Server] Serving production static files (dist found: ${hasDist}).`);
+
+    // Serve built dist assets first if available
+    if (hasDist) {
+      app.use(express.static(distDir));
+    }
+
+    // Always serve static assets from project root (js, css, data) as resilient fallback
+    app.use(express.static(__dirname));
+
+    // Multi-Page Application (MPA) Route Resolution with zero-ENOENT guarantee
     app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+      // Don't intercept API routes
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ success: false, error: 'API endpoint not found' });
+      }
+
+      const rawPath = req.path.replace(/^\/+/, '').split('?')[0];
+      const targetPage = rawPath.endsWith('.html') ? rawPath : (rawPath ? `${rawPath}.html` : 'index.html');
+
+      // 1. Try file in dist
+      if (hasDist) {
+        const distFile = path.resolve(distDir, targetPage);
+        if (fs.existsSync(distFile)) {
+          return res.sendFile(distFile);
+        }
+      }
+
+      // 2. Try file in project root
+      const rootFile = path.resolve(__dirname, targetPage);
+      if (fs.existsSync(rootFile)) {
+        return res.sendFile(rootFile);
+      }
+
+      // 3. Fallback to index.html in dist or root
+      if (hasDist && fs.existsSync(distIndex)) {
+        return res.sendFile(distIndex);
+      }
+      const rootIndex = path.resolve(__dirname, 'index.html');
+      if (fs.existsSync(rootIndex)) {
+        return res.sendFile(rootIndex);
+      }
+
+      return res.status(404).send('EngiQuiz: Page Not Found');
     });
   }
 
